@@ -1,5 +1,5 @@
 # ── Stage 1: Build Java Application ─────────────────────────────────────────
-FROM eclipse-temurin:21-jdk AS builder
+FROM eclipse-temurin:21-jdk-jammy AS builder
 WORKDIR /workspace
 
 COPY pom.xml .
@@ -9,16 +9,18 @@ COPY src ./src
 RUN mvn package -DskipTests -B -q
 
 # ── Stage 2: Production Dual-Runtime (Java 21 + Python 3 Worker) ───────────
-FROM eclipse-temurin:21-jre AS runtime
+FROM eclipse-temurin:21-jre-jammy AS runtime
 LABEL maintainer="astro-backend"
 LABEL description="Dual Runtime: Java 21 Spring Boot + Swiss Ephemeris Python 3 Worker"
 
-# Install Python 3, venv, and build-essential for C-extensions (pyswisseph)
+# Install Python 3 (Ubuntu 22.04 LTS Python 3.10), venv, dev headers, and build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
+    python3-dev \
     build-essential \
+    pkg-config \
     curl \
     wget \
     && rm -rf /var/lib/apt/lists/*
