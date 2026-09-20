@@ -3,6 +3,7 @@ Life Event Timing & Monthly Forecast View for Astro Desktop Application.
 Calculates high-granularity month-by-month domain trajectories across Career, Wealth, Love, and Health.
 """
 import threading
+import queue
 import json
 import tkinter as tk
 import customtkinter as ctk
@@ -14,7 +15,24 @@ class TimelineView(ctk.CTkFrame):
     def __init__(self, master, client: AstroApiClient, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
         self.client = client
+        self.ui_queue = queue.Queue()
         self._build_ui()
+        self._poll_queue()
+
+    def _poll_queue(self):
+        try:
+            while True:
+                msg_type, payload = self.ui_queue.get_nowait()
+                if msg_type == "RESULTS":
+                    self._render_results(payload)
+                elif msg_type == "ERROR":
+                    self._render_error(payload)
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"[TimelineView] Queue error: {e}")
+        finally:
+            self.after(30, self._poll_queue)
 
     def _build_ui(self):
         # ── Configuration Card ────────────────────────────────────────────────
@@ -146,9 +164,9 @@ class TimelineView(ctk.CTkFrame):
         def task():
             try:
                 resp = self.client.get_timeline_forecast(dob, tob, city, horizon)
-                self.after(0, lambda r=resp: self._render_results(r))
+                self.ui_queue.put(("RESULTS", resp))
             except Exception as e:
-                self.after(0, lambda err=str(e): self._render_error(err))
+                self.ui_queue.put(("ERROR", str(e)))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -159,24 +177,30 @@ class TimelineView(ctk.CTkFrame):
         for child in self.scroll_timeline.winfo_children():
             child.destroy()
 
-        timeline = data.get("timeline") or data.get("forecast") or []
+        timeline = data.get("monthlyForecast") or data.get("timeline") or data.get("forecast") or []
         if not timeline:
             ctk.CTkLabel(self.scroll_timeline, text=f"Received response:\n{json.dumps(data, indent=2)}").pack(pady=20)
             return
 
+        def get_score(item, domain_key, fallback_key):
+            ds = item.get("domainScores")
+            if isinstance(ds, dict) and domain_key in ds:
+                return ds[domain_key]
+            return item.get(fallback_key, 50)
+
         # Identify peak months
-        best_career = max(timeline, key=lambda m: m.get("careerScore", 0) or m.get("career", 0), default=None)
-        best_wealth = max(timeline, key=lambda m: m.get("wealthScore", 0) or m.get("wealth", 0), default=None)
-        best_love = max(timeline, key=lambda m: m.get("loveScore", 0) or m.get("love", 0), default=None)
+        best_career = max(timeline, key=lambda m: get_score(m, "career", "careerScore"), default=None)
+        best_wealth = max(timeline, key=lambda m: get_score(m, "wealth", "wealthScore"), default=None)
+        best_love = max(timeline, key=lambda m: get_score(m, "loveAndMarriage", "loveScore"), default=None)
 
         if best_career:
-            c_score = best_career.get("careerScore") or best_career.get("career", 0)
+            c_score = get_score(best_career, "career", "careerScore")
             self.pill_career.configure(text=f"{best_career.get('month', '')} ({c_score}/100)")
         if best_wealth:
-            w_score = best_wealth.get("wealthScore") or best_wealth.get("wealth", 0)
+            w_score = get_score(best_wealth, "wealth", "wealthScore")
             self.pill_wealth.configure(text=f"{best_wealth.get('month', '')} ({w_score}/100)")
         if best_love:
-            l_score = best_love.get("loveScore") or best_love.get("love", 0)
+            l_score = get_score(best_love, "loveAndMarriage", "loveScore")
             self.pill_love.configure(text=f"{best_love.get('month', '')} ({l_score}/100)")
 
         # Populate rows
@@ -188,10 +212,10 @@ class TimelineView(ctk.CTkFrame):
             month_str = item.get("month") or item.get("date") or "Unknown"
             ctk.CTkLabel(row, text=month_str, width=90, anchor="w", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLORS["accent_cyan"]).pack(side="left", padx=8)
 
-            c_val = item.get("careerScore") or item.get("career", 50)
-            w_val = item.get("wealthScore") or item.get("wealth", 50)
-            l_val = item.get("loveScore") or item.get("love", 50)
-            h_val = item.get("healthScore") or item.get("health", 50)
+            c_val = get_score(item, "career", "careerScore")
+            w_val = get_score(item, "wealth", "wealthScore")
+            l_val = get_score(item, "loveAndMarriage", "loveScore")
+            h_val = get_score(item, "healthAndVitality", "healthScore")
 
             self._create_meter(row, c_val, COLORS["accent_purple"], width=140)
             self._create_meter(row, w_val, COLORS["accent_gold"], width=140)
@@ -199,7 +223,7 @@ class TimelineView(ctk.CTkFrame):
             self._create_meter(row, h_val, COLORS["success"], width=140)
 
             # Details/event text
-            desc = item.get("summary") or item.get("notes") or item.get("transitHighlight") or "Favorable planetary transits"
+            desc = item.get("verdict") or item.get("summary") or item.get("notes") or item.get("transitHighlight") or "Favorable planetary transits"
             ctk.CTkLabel(
                 row,
                 text=str(desc),

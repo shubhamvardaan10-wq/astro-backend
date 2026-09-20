@@ -3,6 +3,7 @@ Docker Cluster Mesh Health & Latency Monitor View for Astro Desktop Application.
 Pings and benchmarks all 7 microservices in real-time.
 """
 import threading
+import queue
 import time
 import tkinter as tk
 import customtkinter as ctk
@@ -16,7 +17,22 @@ class MeshMonitorView(ctk.CTkFrame):
         self.client = client
         self.auto_refresh = False
         self.cards: Dict[str, Dict[str, Any]] = {}
+        self.ui_queue = queue.Queue()
         self._build_ui()
+        self._poll_queue()
+
+    def _poll_queue(self):
+        try:
+            while True:
+                msg_type, payload = self.ui_queue.get_nowait()
+                if msg_type == "NODES":
+                    self._render_nodes(payload)
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"[MeshMonitorView] Queue error: {e}")
+        finally:
+            self.after(50, self._poll_queue)
 
     def _build_ui(self):
         # Header Card
@@ -88,7 +104,7 @@ class MeshMonitorView(ctk.CTkFrame):
 
         def task():
             nodes = self.client.check_mesh_nodes()
-            self.after(0, lambda n=nodes: self._render_nodes(n))
+            self.ui_queue.put(("NODES", nodes))
 
         threading.Thread(target=task, daemon=True).start()
 

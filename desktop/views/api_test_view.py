@@ -1,8 +1,10 @@
 """
 API Test Suite Integration View for Astro Desktop Application.
 Runs all 64+ platform endpoints with real-time feedback, category sweeps, and deep JSON payload inspection.
+Uses thread-safe queue event dispatcher for robust cross-thread UI synchronization.
 """
 import json
+import queue
 import threading
 import tkinter as tk
 import customtkinter as ctk
@@ -21,9 +23,36 @@ class ApiTestView(ctk.CTkFrame):
         self.stop_requested = False
         self.selected_endpoint_id: Optional[str] = None
         self.row_widgets: Dict[str, Dict[str, Any]] = {}
+        self.ui_queue = queue.Queue()
 
         self._build_ui()
         self._populate_test_rows()
+        self._poll_queue()
+
+    def _poll_queue(self):
+        try:
+            while True:
+                item = self.ui_queue.get_nowait()
+                msg_type, payload = item
+                if msg_type == "RUNNING":
+                    ep_id = payload
+                    if ep_id in self.row_widgets:
+                        self.row_widgets[ep_id]["badge_label"].configure(text="RUN...", text_color=COLORS["accent_gold"])
+                elif msg_type == "RESULT":
+                    res, progress_val = payload
+                    self._update_row_ui(res)
+                    self.progress_bar.set(progress_val)
+                elif msg_type == "SINGLE_RESULT":
+                    res = payload
+                    self._update_row_ui(res)
+                elif msg_type == "COMPLETE":
+                    self._on_suite_complete()
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"[ApiTestView] Queue dispatch error: {e}")
+        finally:
+            self.after(25, self._poll_queue)
 
     def _build_ui(self):
         # ── Header & Action Controls ──────────────────────────────────────────
@@ -249,7 +278,6 @@ class ApiTestView(ctk.CTkFrame):
         return val_lbl
 
     def _populate_test_rows(self):
-        # Clear any existing rows
         for child in self.scroll_list.winfo_children():
             child.destroy()
         self.row_widgets.clear()
@@ -258,7 +286,6 @@ class ApiTestView(ctk.CTkFrame):
         selected_cat = self.category_var.get()
 
         for ep in self.all_endpoints:
-            # Filter checks
             if selected_cat != "All" and ep.get("category") != selected_cat:
                 continue
             if query:
@@ -275,10 +302,8 @@ class ApiTestView(ctk.CTkFrame):
             row.pack(fill="x", pady=2)
             row.pack_propagate(False)
 
-            # Bind row click for selection
             row.bind("<Button-1>", lambda e, eid=ep_id: self._select_endpoint(eid))
 
-            # Status Badge
             status_text = "READY"
             status_bg = "#374151"
             status_fg = "#D1D5DB"
@@ -298,13 +323,11 @@ class ApiTestView(ctk.CTkFrame):
             lbl_badge = ctk.CTkLabel(badge_frame, text=status_text, font=ctk.CTkFont(size=10, weight="bold"), text_color=status_fg)
             lbl_badge.pack(expand=True)
 
-            # Method Badge
             method = ep.get("method", "GET").upper()
             m_color = COLORS["accent_cyan"] if method == "GET" else COLORS["accent_purple"]
             lbl_method = ctk.CTkLabel(row, text=method, width=50, anchor="w", font=ctk.CTkFont(size=11, weight="bold"), text_color=m_color)
             lbl_method.pack(side="left", padx=4)
 
-            # Name & Category
             lbl_name = ctk.CTkLabel(
                 row,
                 text=ep.get("name", ""),
@@ -315,17 +338,14 @@ class ApiTestView(ctk.CTkFrame):
             lbl_name.pack(side="left", fill="x", expand=True, padx=4)
             lbl_name.bind("<Button-1>", lambda e, eid=ep_id: self._select_endpoint(eid))
 
-            # HTTP Code
             http_text = str(res.status_code) if res else "-"
             lbl_http = ctk.CTkLabel(row, text=http_text, width=50, anchor="center", font=ctk.CTkFont(size=11), text_color=COLORS["text_secondary"])
             lbl_http.pack(side="left", padx=4)
 
-            # Latency
             lat_text = f"{res.duration_ms}ms" if res else "-"
             lbl_lat = ctk.CTkLabel(row, text=lat_text, width=65, anchor="e", font=ctk.CTkFont(size=11), text_color=COLORS["text_secondary"])
             lbl_lat.pack(side="left", padx=4)
 
-            # Single Run Button
             btn_single = ctk.CTkButton(
                 row,
                 text="▶",
@@ -441,7 +461,6 @@ class ApiTestView(ctk.CTkFrame):
             widgets["http_label"].configure(text=str(res.status_code))
             widgets["lat_label"].configure(text=f"{res.duration_ms}ms")
 
-        # Update metrics
         passed = sum(1 for r in self.test_results.values() if r.passed)
         failed = sum(1 for r in self.test_results.values() if not r.passed)
         total_executed = len(self.test_results)
@@ -451,7 +470,6 @@ class ApiTestView(ctk.CTkFrame):
         self.lbl_failed.configure(text=str(failed))
         self.lbl_avg_ms.configure(text=f"{avg_ms} ms")
 
-        # Refresh details if currently selected
         if self.selected_endpoint_id == ep_id:
             self._select_endpoint(ep_id)
 
@@ -463,7 +481,7 @@ class ApiTestView(ctk.CTkFrame):
         def task():
             res = self.client.execute_catalog_endpoint(ep)
             self.test_results[ep_id] = res
-            self.after(0, lambda: self._update_row_ui(res))
+            self.ui_queue.put(("SINGLE_RESULT", res))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -500,18 +518,16 @@ class ApiTestView(ctk.CTkFrame):
                 if self.stop_requested:
                     break
 
-                # Indicate running on row
                 ep_id = ep["id"]
-                if ep_id in self.row_widgets:
-                    self.after(0, lambda eid=ep_id: self.row_widgets[eid]["badge_label"].configure(text="RUN...", text_color=COLORS["accent_gold"]))
+                self.ui_queue.put(("RUNNING", ep_id))
 
                 res = self.client.execute_catalog_endpoint(ep)
                 self.test_results[ep_id] = res
 
                 progress_val = (i + 1) / total_to_run
-                self.after(0, lambda r=res, p=progress_val: (self._update_row_ui(r), self.progress_bar.set(p)))
+                self.ui_queue.put(("RESULT", (res, progress_val)))
 
-            self.after(0, self._on_suite_complete)
+            self.ui_queue.put(("COMPLETE", None))
 
         threading.Thread(target=runner, daemon=True).start()
 

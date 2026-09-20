@@ -3,6 +3,7 @@ Birth Time Rectification (BTR) Assistant View for Astro Desktop Application.
 Solves unknown or approximate birth time using past life milestones and classical verification.
 """
 import threading
+import queue
 import json
 import tkinter as tk
 import customtkinter as ctk
@@ -18,7 +19,24 @@ class BtrView(ctk.CTkFrame):
             {"eventType": "CAREER_BREAKTHROUGH", "eventDate": "2015-06-01"},
             {"eventType": "MARRIAGE", "eventDate": "2018-11-20"}
         ]
+        self.ui_queue = queue.Queue()
         self._build_ui()
+        self._poll_queue()
+
+    def _poll_queue(self):
+        try:
+            while True:
+                msg_type, payload = self.ui_queue.get_nowait()
+                if msg_type == "RESULTS":
+                    self._render_results(payload)
+                elif msg_type == "ERROR":
+                    self._render_error(payload)
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"[BtrView] Queue error: {e}")
+        finally:
+            self.after(30, self._poll_queue)
 
     def _build_ui(self):
         # Top Header Card
@@ -249,9 +267,9 @@ class BtrView(ctk.CTkFrame):
                     gender="MALE",
                     life_events=self.events_list
                 )
-                self.after(0, lambda r=resp: self._render_results(r))
+                self.ui_queue.put(("RESULTS", resp))
             except Exception as e:
-                self.after(0, lambda err=str(e): self._render_error(err))
+                self.ui_queue.put(("ERROR", str(e)))
 
         threading.Thread(target=task, daemon=True).start()
 

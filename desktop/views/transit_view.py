@@ -3,6 +3,7 @@ Daily Transit Alarms & Panchangam View for Astro Desktop Application.
 Delivers real-time Gochara alerts, Chandrashtama warnings, and 5-limb Panchangam calculations.
 """
 import threading
+import queue
 import json
 import tkinter as tk
 import customtkinter as ctk
@@ -15,7 +16,25 @@ class TransitView(ctk.CTkFrame):
     def __init__(self, master, client: AstroApiClient, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
         self.client = client
+        self.ui_queue = queue.Queue()
         self._build_ui()
+        self._poll_queue()
+
+    def _poll_queue(self):
+        try:
+            while True:
+                msg_type, payload = self.ui_queue.get_nowait()
+                if msg_type == "RESULTS":
+                    alerts, panchang = payload
+                    self._render_results(alerts, panchang)
+                elif msg_type == "ERROR":
+                    self._render_error(payload)
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"[TransitView] Queue error: {e}")
+        finally:
+            self.after(30, self._poll_queue)
 
     def _build_ui(self):
         # ── Controls Card ─────────────────────────────────────────────────────
@@ -140,9 +159,9 @@ class TransitView(ctk.CTkFrame):
             try:
                 alerts = self.client.get_transit_alerts(dob, tob, city, t_date)
                 panchang = self.client.get_panchangam(lat=28.6139, lon=77.2090, date_str=t_date)
-                self.after(0, lambda a=alerts, p=panchang: self._render_results(a, p))
+                self.ui_queue.put(("RESULTS", (alerts, panchang)))
             except Exception as e:
-                self.after(0, lambda err=str(e): self._render_error(err))
+                self.ui_queue.put(("ERROR", str(e)))
 
         threading.Thread(target=task, daemon=True).start()
 

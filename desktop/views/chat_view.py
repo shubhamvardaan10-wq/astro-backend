@@ -3,6 +3,7 @@ Conversational AI Chat View for Astro Desktop Application.
 Supports multi-turn stateful consultations, natal birth grounding, and bilingual English/Hindi dialogue.
 """
 import threading
+import queue
 import tkinter as tk
 import customtkinter as ctk
 from typing import Optional, Dict, Any
@@ -16,8 +17,25 @@ class ChatView(ctk.CTkFrame):
         self.session_id: Optional[str] = None
         self.language = "en"
         self.messages = []
+        self.ui_queue = queue.Queue()
 
         self._build_ui()
+        self._poll_queue()
+
+    def _poll_queue(self):
+        try:
+            while True:
+                msg_type, payload = self.ui_queue.get_nowait()
+                if msg_type == "RESPONSE":
+                    self._on_chat_response(payload)
+                elif msg_type == "ERROR":
+                    self._on_chat_error(payload)
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"[ChatView] Queue dispatch error: {e}")
+        finally:
+            self.after(30, self._poll_queue)
 
     def _build_ui(self):
         # Top Header Bar: Session info, Birth Profile, Language toggle
@@ -274,9 +292,9 @@ class ChatView(ctk.CTkFrame):
                     session_id=self.session_id,
                     language=self.language
                 )
-                self.after(0, lambda r=resp: self._on_chat_response(r))
+                self.ui_queue.put(("RESPONSE", resp))
             except Exception as e:
-                self.after(0, lambda err=str(e): self._on_chat_error(err))
+                self.ui_queue.put(("ERROR", str(e)))
 
         threading.Thread(target=task, daemon=True).start()
 

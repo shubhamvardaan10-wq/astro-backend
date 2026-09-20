@@ -2,6 +2,7 @@
 Vedic Chart, Planetary Positions, and Yogas Detection View.
 """
 import threading
+import queue
 import json
 import tkinter as tk
 import customtkinter as ctk
@@ -13,7 +14,24 @@ class KundliView(ctk.CTkFrame):
     def __init__(self, master, client: AstroApiClient, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
         self.client = client
+        self.ui_queue = queue.Queue()
         self._build_ui()
+        self._poll_queue()
+
+    def _poll_queue(self):
+        try:
+            while True:
+                msg_type, payload = self.ui_queue.get_nowait()
+                if msg_type == "CHART":
+                    self._render_chart(payload)
+                elif msg_type == "ERROR":
+                    self._render_error(payload)
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"[KundliView] Queue error: {e}")
+        finally:
+            self.after(30, self._poll_queue)
 
     def _build_ui(self):
         # ── Controls Card ─────────────────────────────────────────────────────
@@ -132,9 +150,9 @@ class KundliView(ctk.CTkFrame):
         def task():
             try:
                 chart = self.client.get_vedic_chart(dob, tob, city)
-                self.after(0, lambda c=chart: self._render_chart(c))
+                self.ui_queue.put(("CHART", chart))
             except Exception as e:
-                self.after(0, lambda err=str(e): self._render_error(err))
+                self.ui_queue.put(("ERROR", str(e)))
 
         threading.Thread(target=task, daemon=True).start()
 
