@@ -1,0 +1,10 @@
+PyJHora==4.8.7
+pyswisseph==2.10.3.2
+lunar-python==1.4.8
+numpy==2.1.1
+requests==2.32.5
+geocoder==1.38.1
+geopy==2.4.1
+pytz==2025.2
+timezonefinder==6.5.2
+python-dateutil==2.9.0.post0

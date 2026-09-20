@@ -1,0 +1,70 @@
+server:
+  port: ${SERVER_PORT:18080}
+  compression:
+    enabled: true
+    mime-types: application/json
+  shutdown: graceful
+
+spring:
+  application:
+    name: astro-backend
+  lifecycle:
+    timeout-per-shutdown-phase: 10s
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      indent-output: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    elasticsearch:
+      enabled: false
+    redis:
+      enabled: false
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: Astro Backend
+    description: Vedic + Western Astrology API (pure-Java Meeus ephemeris)
+    version: 1.0.0
+    disclaimer: >
+      Astrological algorithms are traditional computational frameworks.
+      Predictive validity is not scientifically established (Carlson, Nature 1985).
+
+astro:
+  geocoding:
+    base-url: ${ASTRO_GEOCODER_URL:}
+    timeout-seconds: ${ASTRO_GEOCODER_TIMEOUT_SECONDS:10}
+  ai:
+    enabled: ${ASTRO_AI_ENABLED:true}
+    base-url: ${ASTRO_AI_BASE_URL:http://127.0.0.1:11434}
+    model: ${ASTRO_AI_MODEL:qwen2.5:7b}
+    timeout-seconds: ${ASTRO_AI_TIMEOUT_SECONDS:90}
+    report-timeout-seconds: ${ASTRO_AI_REPORT_TIMEOUT_SECONDS:900}
+  redis:
+    enabled: ${ASTRO_REDIS_ENABLED:false}
+  kafka:
+    enabled: ${ASTRO_KAFKA_ENABLED:false}
+    report-topic: ${ASTRO_KAFKA_REPORT_TOPIC:astro.report.requests}
+    progress-topic: ${ASTRO_KAFKA_PROGRESS_TOPIC:astro.report.progress}
+    telemetry-topic: ${ASTRO_KAFKA_TELEMETRY_TOPIC:astro.telemetry}
+  elasticsearch:
+    enabled: ${ASTRO_ELASTICSEARCH_ENABLED:false}
+    index-name: ${ASTRO_ELASTICSEARCH_INDEX:astro_rules}
+
+logging:
+  level:
+    root: INFO
+    com.astro: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

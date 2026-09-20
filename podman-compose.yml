@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  astro-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: astro-backend:1.0.0
+    container_name: astro-backend
+    ports:
+      - "127.0.0.1:${ASTRO_PORT:-18080}:8080"
+    environment:
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+      - SPRING_PROFILES_ACTIVE=default
+      - SERVER_PORT=8080
+      - ASTRO_GEOCODER_URL=${ASTRO_GEOCODER_URL:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "io.podman.compose.project=astro"
+
+  nominatim:
+    image: docker.io/mediagis/nominatim:5.2@sha256:3c49ad9443baab1f1ea13a6b1355fa377ae5fb0874dc328cba9b97a0ca7914bb
+    profiles: ["geocoding"]
+    ports:
+      - "127.0.0.1:${ASTRO_GEOCODER_PORT:-18081}:8080"
+    environment:
+      PBF_URL: ${NOMINATIM_PBF_URL:-}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-}
+      ALLOW_INITIAL_IMPORT: ${NOMINATIM_ALLOW_INITIAL_IMPORT:-false}
+      BASH_ENV: /etc/nominatim-no-trace.bash
+      IMPORT_STYLE: admin
+      IMPORT_WIKIPEDIA: "false"
+      IMPORT_SECONDARY_WIKIPEDIA: "false"
+      IMPORT_US_POSTCODES: "false"
+      IMPORT_GB_POSTCODES: "false"
+      IMPORT_TIGER_ADDRESSES: "false"
+      UPDATE_MODE: none
+      THREADS: ${NOMINATIM_THREADS:-2}
+      GUNICORN_WORKERS: "2"
+    entrypoint: ["/bin/bash", "-ec"]
+    command:
+      - |
+        test -f "$$BASH_ENV" || { echo 'Required tracing guard is missing'; exit 1; }
+        : "$${NOMINATIM_PASSWORD:?Set NOMINATIM_PASSWORD outside version control}"
+        : "$${PBF_URL:?Set NOMINATIM_PBF_URL to the public HTTPS OSM dataset you intend to import}"
+        case "$$PBF_URL" in
+          *\?*|*\#*|*@*) echo 'Use a public dataset URL without credentials or query parameters'; exit 1 ;;
+          https://*) ;;
+          *) echo 'The dataset URL must use HTTPS'; exit 1 ;;
+        esac
+        if [ ! -f /var/lib/postgresql/16/main/import-finished ]; then
+          if [ "$$ALLOW_INITIAL_IMPORT" != true ]; then
+            echo 'Initial import is disabled. Confirm disk/RAM and dataset coverage, then set NOMINATIM_ALLOW_INITIAL_IMPORT=true.'
+            exit 1
+          fi
+        fi
+        exec /app/start.sh
+    volumes:
+      - nominatim-data:/var/lib/postgresql/16/main
+      - ./worker/nominatim-no-trace.bash:/etc/nominatim-no-trace.bash:ro
+    shm_size: ${NOMINATIM_SHM_SIZE:-1gb}
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/status?format=json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  nominatim-data:
+

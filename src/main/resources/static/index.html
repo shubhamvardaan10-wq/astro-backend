@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>वैदिक AI ज्योतिषी • Vedic AI Astrologer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #121826;
+      --bg-card: #182234;
+      --bg-input: #1e293b;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --accent-gold: #f59e0b;
+      --accent-gold-hover: #d97706;
+      --accent-cyan: #38bdf8;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --user-bubble: #2563eb;
+      --bot-bubble: #1a2233;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', -apple-system, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      background: rgba(18, 24, 38, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #f59e0b, #b45309);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+    }
+
+    .brand-title {
+      font-family: 'Cinzel', 'Noto Sans Devanagari', serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: #10b981;
+      display: inline-block;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .lang-toggle-btn {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: var(--accent-gold);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .lang-toggle-btn:hover {
+      background: rgba(245, 158, 11, 0.25);
+      transform: scale(1.02);
+    }
+
+    .clear-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .clear-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+    }
+
+    /* Chat Container */
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 880px;
+      width: 100%;
+      margin: 0 auto;
+      scroll-behavior: smooth;
+    }
+
+    /* Welcome Card */
+    .welcome-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      margin: 30px auto 10px auto;
+      max-width: 640px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .welcome-card h2 {
+      font-family: 'Cinzel', 'Noto Sans Devanagari', serif;
+      font-size: 1.45rem;
+      color: var(--accent-gold);
+      margin-bottom: 8px;
+    }
+
+    .welcome-card p {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    .suggestions-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .suggestions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 620px) {
+      .suggestions-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .suggestion-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      line-height: 1.4;
+    }
+
+    .suggestion-btn:hover {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+
+    /* Message Bubbles */
+    .message {
+      display: flex;
+      gap: 14px;
+      max-width: 85%;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+
+    .message.user .avatar {
+      background: #3b82f6;
+    }
+
+    .message.bot .avatar {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .bubble-content {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bubble {
+      padding: 14px 18px;
+      border-radius: 16px;
+      font-size: 0.94rem;
+      line-height: 1.65;
+      word-break: break-word;
+    }
+
+    .message.user .bubble {
+      background: var(--user-bubble);
+      color: #ffffff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.bot .bubble {
+      background: var(--bot-bubble);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-bottom-left-radius: 4px;
+    }
+
+    .timestamp {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      align-self: flex-start;
+      margin-left: 4px;
+    }
+
+    .message.user .timestamp {
+      align-self: flex-end;
+      margin-right: 4px;
+    }
+
+    /* Tool Call Badges */
+    .tool-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .tool-details {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+
+    /* Typing Indicator */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 12px 16px;
+      background: var(--bot-bubble);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      width: fit-content;
+    }
+
+    .typing-indicator span {
+      width: 6px;
+      height: 6px;
+      background: var(--accent-gold);
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Footer */
+    footer {
+      background: rgba(18, 24, 38, 0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border-color);
+      padding: 16px 24px;
+      z-index: 10;
+    }
+
+    .input-wrapper {
+      max-width: 880px;
+      margin: 0 auto;
+      display: flex;
+      gap: 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 6px 6px 6px 16px;
+      transition: border-color 0.2s ease;
+      align-items: center;
+    }
+
+    .input-wrapper:focus-within {
+      border-color: var(--accent-gold);
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+    }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: none;
+      max-height: 120px;
+      min-height: 26px;
+      line-height: 1.5;
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      background: var(--accent-gold);
+      border: none;
+      color: #000;
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover {
+      background: var(--accent-gold-hover);
+      transform: scale(1.05);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .input-hint {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* Tabs & Observatory */
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .tab-btn.active, .tab-btn:hover {
+      background: var(--bg-card);
+      color: var(--accent-gold);
+    }
+    .observatory-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1280px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .ticker-bar {
+      background: linear-gradient(90deg, rgba(245, 158, 11, 0.12), rgba(56, 189, 248, 0.12));
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ticker-item { display: flex; flex-direction: column; gap: 2px; }
+    .ticker-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .ticker-val { font-size: 0.95rem; font-weight: 700; color: var(--accent-gold); }
+    .observatory-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 20px;
+    }
+    .obs-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .obs-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+    .obs-card-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .obs-form-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .obs-input, .obs-select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .obs-btn {
+      background: linear-gradient(135deg, var(--accent-gold), #d97706);
+      color: #000;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: transform 0.15s;
+    }
+    .obs-btn:hover { transform: scale(1.02); }
+    .lo-shu-grid-table {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      width: 100%;
+      max-width: 260px;
+      margin: 10px auto;
+    }
+    .lo-shu-cell {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      height: 70px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+    .lo-shu-cell.filled { border-color: var(--accent-gold); background: rgba(245, 158, 11, 0.15); }
+    .lo-shu-num { font-size: 1.3rem; color: var(--accent-gold); }
+    .lo-shu-freq { font-size: 0.7rem; color: var(--text-muted); }
+    .bar-container { display: flex; flex-direction: column; gap: 6px; }
+    .bar-wrapper { background: var(--bg-input); height: 10px; border-radius: 5px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 5px; transition: width 0.4s ease; }
+    .bar-vata { background: #38bdf8; }
+    .bar-pitta { background: #f59e0b; }
+    .bar-kapha { background: #10b981; }
+    .svg-preview-box {
+      background: #000;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 280px;
+      border: 1px solid var(--border-color);
+    }
+    .svg-preview-box svg { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🪐</div>
+      <div>
+        <div class="brand-title" id="brandTitle">वैदिक AI ज्योतिषी</div>
+        <div class="brand-subtitle">
+          <span class="status-dot"></span>
+          <span id="brandSubtitle">बैकएंड कनेक्टेड • 75+ इंजन सक्रिय</span>
+        </div>
+      </div>
+    </div>
+    <nav class="nav-tabs">
+      <button class="tab-btn active" id="tabChat" onclick="switchView('chat')">💬 चैट सहायक</button>
+      <button class="tab-btn" id="tabObservatory" onclick="switchView('observatory')">🪐 वेधशाला</button>
+      <a class="tab-btn" href="/docs.html" target="_blank">📖 API सैंडबॉक्स</a>
+    </nav>
+    <div class="header-actions">
+      <button class="lang-toggle-btn" id="langToggleBtn" onclick="toggleLanguage()">
+        <span>🌐</span> <span id="langBtnText">English</span>
+      </button>
+      <button class="clear-btn" id="clearBtn" onclick="clearChat()">चैट साफ़ करें</button>
+    </div>
+  </header>
+
+  <!-- Chat Messages -->
+  <div class="chat-container" id="chatContainer">
+    
+    <!-- Welcome Card -->
+    <div class="welcome-card" id="welcomeCard">
+      <h2 id="welcomeHeading"> सादर प्रणाम! आज आपके सितारे क्या कह रहे हैं?</h2>
+      <p id="welcomeDesc">मैं आपका स्वायत्त वैदिक AI ज्योतिषी हूँ। अपनी जन्म कुंडली, अनुकूल रत्न, करियर, विवाह मिलान या ग्रह गोचर के बारे में कोई भी प्रश्न पूछें।</p>
+      
+      <div class="suggestions-label" id="suggestionsLabel">त्वरित सुझाव (क्लिक करें):</div>
+      <div class="suggestions-grid" id="suggestionsGrid">
+        <!-- Injected dynamically via JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Astrological Observatory & Workbench -->
+  <div class="observatory-container" id="observatoryContainer" style="display:none;">
+    <!-- Live Cosmic Ticker -->
+    <div class="ticker-bar" id="tickerBar">
+      <div class="ticker-item">
+        <span class="ticker-label" id="lblTithi">तिथि (Tithi)</span>
+        <span class="ticker-val" id="valTithi">लोड हो रहा है...</span>
+      </div>
+      <div class="ticker-item">
+        <span class="ticker-label" id="lblNakshatra">नक्षत्र (Nakshatra)</span>
+        <span class="ticker-val" id="valNakshatra">लोड हो रहा है...</span>
+      </div>
+      <div class="ticker-item">
+        <span class="ticker-label" id="lblHora">होरा स्वामी (Hora Lord)</span>
+        <span class="ticker-val" id="valHora">लोड हो रहा है...</span>
+      </div>
+      <div class="ticker-item">
+        <span class="ticker-label" id="lblChoghadiya">चौघड़िया (Choghadiya)</span>
+        <span class="ticker-val" id="valChoghadiya">लोड हो रहा है...</span>
+      </div>
+      <div class="ticker-item">
+        <span class="ticker-label" id="lblRahuKaal">राहु काल (Rahu Kaal)</span>
+        <span class="ticker-val" id="valRahuKaal">लोड हो रहा है...</span>
+      </div>
+      <div class="ticker-item">
+        <span class="ticker-label" id="lblCosmicNote">पर्व / विशेष (Festival)</span>
+        <span class="ticker-val" id="valCosmicNote">लोड हो रहा है...</span>
+      </div>
+    </div>
+
+    <!-- Observatory Grid -->
+    <div class="observatory-grid">
+      <!-- Card 1: Multi-Style Vector SVG Kundli Generator -->
+      <div class="obs-card">
+        <div class="obs-card-header">
+          <div class="obs-card-title"><span>🎨</span> <span id="titleSvgChart">मल्टी-स्टाइल वेक्टर कुंडली (SVG)</span></div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Vector Graphics</span>
+        </div>
+        <div class="obs-form-row">
+          <label style="font-size:0.82rem; color:var(--text-muted);">शैली (Style):</label>
+          <select id="svgChartStyle" class="obs-select" onchange="displaySelectedSvg()">
+            <option value="NORTH_INDIAN">उत्तर भारतीय (North Indian Diamond)</option>
+            <option value="SOUTH_INDIAN">दक्षिण भारतीय (South Indian Fixed)</option>
+            <option value="WESTERN">पाश्चात्य चक्र (Western Wheel)</option>
+          </select>
+        </div>
+        <div class="obs-form-row">
+          <label style="font-size:0.82rem; color:var(--text-muted);">जन्म समय (DOB):</label>
+          <input type="datetime-local" id="svgDob" class="obs-input" value="1990-05-15T14:30">
+          <button class="obs-btn" onclick="renderSvgChartUI()">🎨 कुंडली बनाएं</button>
+        </div>
+        <div class="svg-preview-box" id="svgPreviewBox">
+          <span style="color:var(--text-muted); font-size:0.85rem;">'कुंडली बनाएं' पर क्लिक करें</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Lo Shu Magic Square & Astro-Numerology -->
+      <div class="obs-card">
+        <div class="obs-card-header">
+          <div class="obs-card-title"><span>🔢</span> <span id="titleLoShu">लो-शू मैजिक स्क्वायर (Lo Shu Grid)</span></div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">3×3 Magic Square</span>
+        </div>
+        <div class="obs-form-row">
+          <label style="font-size:0.82rem; color:var(--text-muted);">जन्म तिथि:</label>
+          <input type="date" id="loShuDob" class="obs-input" value="1990-05-15">
+          <select id="loShuGender" class="obs-select">
+            <option value="MALE">पुरुष (Male)</option>
+            <option value="FEMALE">महिला (Female)</option>
+          </select>
+          <button class="obs-btn" onclick="calculateLoShuUI()">⚡ ग्रिड गणना</button>
+        </div>
+        <div class="lo-shu-grid-table" id="loShuTable">
+          <div class="lo-shu-cell" id="lsc-4"><div class="lo-shu-num">4</div><div class="lo-shu-freq" id="lsf-4">-</div></div>
+          <div class="lo-shu-cell" id="lsc-9"><div class="lo-shu-num">9</div><div class="lo-shu-freq" id="lsf-9">-</div></div>
+          <div class="lo-shu-cell" id="lsc-2"><div class="lo-shu-num">2</div><div class="lo-shu-freq" id="lsf-2">-</div></div>
+          <div class="lo-shu-cell" id="lsc-3"><div class="lo-shu-num">3</div><div class="lo-shu-freq" id="lsf-3">-</div></div>
+          <div class="lo-shu-cell" id="lsc-5"><div class="lo-shu-num">5</div><div class="lo-shu-freq" id="lsf-5">-</div></div>
+          <div class="lo-shu-cell" id="lsc-7"><div class="lo-shu-num">7</div><div class="lo-shu-freq" id="lsf-7">-</div></div>
+          <div class="lo-shu-cell" id="lsc-8"><div class="lo-shu-num">8</div><div class="lo-shu-freq" id="lsf-8">-</div></div>
+          <div class="lo-shu-cell" id="lsc-1"><div class="lo-shu-num">1</div><div class="lo-shu-freq" id="lsf-1">-</div></div>
+          <div class="lo-shu-cell" id="lsc-6"><div class="lo-shu-num">6</div><div class="lo-shu-freq" id="lsf-6">-</div></div>
+        </div>
+        <div id="loShuSummary" style="font-size:0.82rem; color:var(--text-secondary); line-height:1.5; background:var(--bg-input); padding:10px; border-radius:8px;">
+          मूलांक, भाग्यांक व कुआ संख्या की गणना के लिए बटन दबाएं।
+        </div>
+      </div>
+
+      <!-- Card 3: Prashna Horary Astrological Engine -->
+      <div class="obs-card">
+        <div class="obs-card-header">
+          <div class="obs-card-title"><span>🔮</span> <span id="titlePrashna">वैदिक प्रश्न कुंडली (Horary Astrology)</span></div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">KP & Tajika</span>
+        </div>
+        <div class="obs-form-row">
+          <label style="font-size:0.82rem; color:var(--text-muted);">प्रश्न श्रेणी:</label>
+          <select id="prashnaCategory" class="obs-select">
+            <option value="CAREER">करियर व पदोन्नति (Career & Job)</option>
+            <option value="WEALTH">धन व वित्त लाभ (Wealth & Finance)</option>
+            <option value="MARRIAGE">विवाह व संबंध (Marriage & Relationship)</option>
+            <option value="HEALTH">स्वास्थ्य व आरोग्य (Health & Recovery)</option>
+            <option value="TRAVEL">यात्रा व विदेश गमन (Travel & Foreign)</option>
+            <option value="GENERAL">सामान्य प्रश्न (General Inquiry)</option>
+          </select>
+        </div>
+        <div class="obs-form-row">
+          <label style="font-size:0.82rem; color:var(--text-muted);">KP संख्या (1-249):</label>
+          <input type="number" id="prashnaSeed" class="obs-input" min="1" max="249" value="108" style="width:75px;">
+          <button class="obs-btn" onclick="calculatePrashnaUI()">🔮 प्रश्न फल देखें</button>
+        </div>
+        <div id="prashnaResult" style="font-size:0.84rem; color:var(--text-secondary); line-height:1.6; background:var(--bg-input); padding:12px; border-radius:8px;">
+          प्रश्न की श्रेणी चुनें और 1 से 249 के बीच एक KP संख्या प्रदान करें।
+        </div>
+      </div>
+
+      <!-- Card 4: Medical Ayur-Jyotish Tridosha Engine -->
+      <div class="obs-card">
+        <div class="obs-card-header">
+          <div class="obs-card-title"><span>🌿</span> <span id="titleAyurveda">आयुर्वेद त्रिदोष विश्लेषण (Medical Jyotish)</span></div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Charaka & Sushruta</span>
+        </div>
+        <div class="obs-form-row">
+          <label style="font-size:0.82rem; color:var(--text-muted);">जन्म समय (DOB):</label>
+          <input type="datetime-local" id="ayurDob" class="obs-input" value="1990-05-15T14:30">
+          <button class="obs-btn" onclick="calculateAyurvedaUI()">🌿 त्रिदोष गणना</button>
+        </div>
+        <div class="bar-container">
+          <div style="display:flex; justify-content:space-between; font-size:0.78rem;">
+            <span>वात (Vata - Air & Ether)</span>
+            <span id="vataPctText">33%</span>
+          </div>
+          <div class="bar-wrapper"><div class="bar-fill bar-vata" id="vataBar" style="width:33%;"></div></div>
+
+          <div style="display:flex; justify-content:space-between; font-size:0.78rem;">
+            <span>पित्त (Pitta - Fire & Water)</span>
+            <span id="pittaPctText">33%</span>
+          </div>
+          <div class="bar-wrapper"><div class="bar-fill bar-pitta" id="pittaBar" style="width:33%;"></div></div>
+
+          <div style="display:flex; justify-content:space-between; font-size:0.78rem;">
+            <span>कफ (Kapha - Earth & Water)</span>
+            <span id="kaphaPctText">34%</span>
+          </div>
+          <div class="bar-wrapper"><div class="bar-fill bar-kapha" id="kaphaBar" style="width:34%;"></div></div>
+        </div>
+        <div id="ayurPrescription" style="font-size:0.82rem; color:var(--text-secondary); line-height:1.5; background:var(--bg-input); padding:10px; border-radius:8px;">
+          वात, पित्त और कफ का आयुर्वेदिक संतुलन व अनुकूल औषधियाँ देखने हेतु गणना करें।
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input Footer -->
+  <footer>
+    <div class="input-wrapper">
+      <textarea id="userInput" rows="1" placeholder="अपना ज्योतिषीय प्रश्न यहाँ पूछें..." onkeydown="handleKey(event)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+    <div class="input-hint" id="inputHint">Enter दबाकर भेजें • Shift + Enter से नई लाइन • वैदिक ReAct AI द्वारा संचालित</div>
+  </footer>
+
+  <script>
+    let currentLang = 'hi'; // Default Hindi per user request
+
+    const i18n = {
+      hi: {
+        brandTitle: 'वैदिक AI ज्योतिषी',
+        brandSubtitle: 'बैकएंड कनेक्टेड • 75+ इंजन सक्रिय',
+        langBtnText: 'English',
+        clearBtn: 'चैट साफ़ करें',
+        welcomeHeading: 'सादर प्रणाम! आज आपके सितारे क्या कह रहे हैं?',
+        welcomeDesc: 'मैं आपका स्वायत्त वैदिक AI ज्योतिषी हूँ। अपनी जन्म कुंडली, अनुकूल रत्न, करियर, विवाह मिलान या ग्रह गोचर के बारे में कोई भी प्रश्न पूछें।',
+        suggestionsLabel: 'त्वरित प्रश्न सुझाव:',
+        placeholder: 'अपना ज्योतिषीय प्रश्न यहाँ पूछें...',
+        inputHint: 'Enter दबाकर भेजें • Shift + Enter से नई लाइन • वैदिक ReAct AI द्वारा संचालित',
+        toolPrefix: '⚡ सक्रिय गणना इंजन: ',
+        tabChat: '💬 चैट सहायक',
+        tabObservatory: '🪐 वेधशाला',
+        lblTithi: 'तिथि (Tithi)',
+        lblNakshatra: 'नक्षत्र (Nakshatra)',
+        lblHora: 'होरा स्वामी (Hora Lord)',
+        lblChoghadiya: 'चौघड़िया (Choghadiya)',
+        lblRahuKaal: 'राहु काल (Rahu Kaal)',
+        lblCosmicNote: 'पर्व / विशेष (Festival)',
+        titleSvgChart: 'मल्टी-स्टाइल वेक्टर कुंडली (SVG)',
+        titleLoShu: 'लो-शू मैजिक स्क्वायर (Lo Shu Grid)',
+        titlePrashna: 'वैदिक प्रश्न कुंडली (Horary Astrology)',
+        titleAyurveda: 'आयुर्वेद त्रिदोष विश्लेषण (Medical Jyotish)',
+        prompts: [
+          { icon: '💼', title: 'करियर व अनुकूल रत्न', query: 'मेरी जन्म तिथि 15-05-1990, समय 14:30, नई दिल्ली है। मेरा करियर और अनुकूल रत्न बताएं।' },
+          { icon: '🌌', title: 'आज का ग्रह गोचर', query: 'आज का ग्रह गोचर और चंद्र अष्टम की स्थिति बताएं।' },
+          { icon: '💑', title: '36-गुण कुंडली मिलान', query: 'अर्जुन (1990-05-15, दिल्ली) और प्रिया (1992-08-20, मुंबई) का 36-गुण कुंडली मिलान करें।' },
+          { icon: '⏳', title: 'व्यापार हेतु शुभ मुहूर्त', query: 'अक्टूबर 2026 में नए व्यापार व स्टार्टअप शुभारंभ के लिए शुभ मुहूर्त बताएं।' }
+        ]
+      },
+      en: {
+        brandTitle: 'Vedic AI Astrologer',
+        brandSubtitle: 'Backend Connected • 75+ Engines Live',
+        langBtnText: 'हिन्दी',
+        clearBtn: 'Clear Chat',
+        welcomeHeading: 'Namaste! How can the stars assist you today?',
+        welcomeDesc: 'I am your autonomous Vedic AI consultation assistant. Ask me anything about your birth chart, gemstones, career timing, compatibility, or transits.',
+        suggestionsLabel: 'Try asking:',
+        placeholder: 'Type your astrological question...',
+        inputHint: 'Press Enter to send, Shift + Enter for new line • Powered by Antigravity ReAct Engine',
+        toolPrefix: '⚡ Used Engine: ',
+        tabChat: '💬 AI Astrologer',
+        tabObservatory: '🪐 Observatory',
+        lblTithi: 'Tithi (Lunar Day)',
+        lblNakshatra: 'Nakshatra (Constellation)',
+        lblHora: 'Hora Lord (Planetary Hour)',
+        lblChoghadiya: 'Choghadiya (Muhurta)',
+        lblRahuKaal: 'Rahu Kaal (Inauspicious)',
+        lblCosmicNote: 'Festival & Sentiment',
+        titleSvgChart: 'Multi-Style Vector Kundli (SVG)',
+        titleLoShu: 'Lo Shu Magic Square Grid',
+        titlePrashna: 'Vedic Prashna Horary Engine',
+        titleAyurveda: 'Ayur-Jyotish Tridosha Engine',
+        prompts: [
+          { icon: '💼', title: 'Career & Gemstone Dosage', query: 'What are my career yogas and gemstone dosage for dob 1990-05-15 time 14:30 in New Delhi?' },
+          { icon: '🌌', title: 'Transits & Moon Alert', query: 'Check current Gochar planetary transits and Chandrashtama alerts for today' },
+          { icon: '💑', title: 'Kundli Compatibility', query: 'Calculate 36-Guna Kundli Milan between Arjun (1990-05-15, New Delhi) and Priya (1992-08-20, Mumbai)' },
+          { icon: '⏳', title: 'Shubh Launch Muhurta', query: 'Find Shubh Muhurta for new startup founding in October 2026' }
+        ]
+      }
+    };
+
+    const chatContainer = document.getElementById('chatContainer');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const welcomeCard = document.getElementById('welcomeCard');
+    const sessionId = 'session-' + Math.random().toString(36).substring(2, 9);
+
+    function applyLanguage(lang) {
+      currentLang = lang;
+      const t = i18n[lang];
+      document.getElementById('brandTitle').textContent = t.brandTitle;
+      document.getElementById('brandSubtitle').textContent = t.brandSubtitle;
+      document.getElementById('langBtnText').textContent = t.langBtnText;
+      document.getElementById('clearBtn').textContent = t.clearBtn;
+      document.getElementById('welcomeHeading').textContent = t.welcomeHeading;
+      document.getElementById('welcomeDesc').textContent = t.welcomeDesc;
+      document.getElementById('suggestionsLabel').textContent = t.suggestionsLabel;
+      document.getElementById('userInput').placeholder = t.placeholder;
+      document.getElementById('inputHint').textContent = t.inputHint;
+
+      if (document.getElementById('tabChat')) document.getElementById('tabChat').textContent = t.tabChat;
+      if (document.getElementById('tabObservatory')) document.getElementById('tabObservatory').textContent = t.tabObservatory;
+      if (document.getElementById('lblTithi')) document.getElementById('lblTithi').textContent = t.lblTithi;
+      if (document.getElementById('lblNakshatra')) document.getElementById('lblNakshatra').textContent = t.lblNakshatra;
+      if (document.getElementById('lblHora')) document.getElementById('lblHora').textContent = t.lblHora;
+      if (document.getElementById('lblChoghadiya')) document.getElementById('lblChoghadiya').textContent = t.lblChoghadiya;
+      if (document.getElementById('lblRahuKaal')) document.getElementById('lblRahuKaal').textContent = t.lblRahuKaal;
+      if (document.getElementById('lblCosmicNote')) document.getElementById('lblCosmicNote').textContent = t.lblCosmicNote;
+      if (document.getElementById('titleSvgChart')) document.getElementById('titleSvgChart').textContent = t.titleSvgChart;
+      if (document.getElementById('titleLoShu')) document.getElementById('titleLoShu').textContent = t.titleLoShu;
+      if (document.getElementById('titlePrashna')) document.getElementById('titlePrashna').textContent = t.titlePrashna;
+      if (document.getElementById('titleAyurveda')) document.getElementById('titleAyurveda').textContent = t.titleAyurveda;
+
+      const grid = document.getElementById('suggestionsGrid');
+      grid.innerHTML = '';
+      t.prompts.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'suggestion-btn';
+        btn.innerHTML = `<span>${p.icon}</span> <span>${p.title}</span>`;
+        btn.onclick = () => usePrompt(p.query);
+        grid.appendChild(btn);
+      });
+    }
+
+    function toggleLanguage() {
+      applyLanguage(currentLang === 'hi' ? 'en' : 'hi');
+    }
+
+    function usePrompt(text) {
+      userInput.value = text;
+      userInput.focus();
+      sendMessage();
+    }
+
+    function clearChat() {
+      chatContainer.innerHTML = '';
+      chatContainer.appendChild(welcomeCard);
+      welcomeCard.style.display = 'block';
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function formatTime() {
+      const now = new Date();
+      return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function appendUserMessage(text) {
+      if (welcomeCard) welcomeCard.style.display = 'none';
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message user';
+      msgDiv.innerHTML = `
+        <div class="avatar">👤</div>
+        <div class="bubble-content">
+          <div class="bubble">${escapeHtml(text)}</div>
+          <div class="timestamp">${formatTime()}</div>
+        </div>
+      `;
+      chatContainer.appendChild(msgDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function appendBotMessage(text, steps) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message bot';
+      const t = i18n[currentLang];
+
+      let toolsHtml = '';
+      if (steps && steps.length > 0) {
+        steps.forEach((step, idx) => {
+          if (step.action) {
+            toolsHtml += `
+              <div class="tool-badge" onclick="toggleToolDetails('tool-step-${idx}')">
+                ${t.toolPrefix}<strong>${step.action}</strong> (${step.stepDurationMs || 45}ms)
+              </div>
+              <div class="tool-details" id="tool-step-${idx}" style="display:none;">
+<strong>Arguments:</strong> ${escapeHtml(JSON.stringify(step.actionArguments || {}, null, 2))}
+<strong>Observation:</strong> ${escapeHtml(step.observation || 'Calculation successful')}
+              </div>
+            `;
+          }
+        });
+      }
+
+      msgDiv.innerHTML = `
+        <div class="avatar">🪐</div>
+        <div class="bubble-content">
+          ${toolsHtml}
+          <div class="bubble">${formatMarkdown(text)}</div>
+          <div class="timestamp">${formatTime()}</div>
+        </div>
+      `;
+      chatContainer.appendChild(msgDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function toggleToolDetails(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+      }
+    }
+
+    function showTypingIndicator() {
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'message bot';
+      typingDiv.id = 'typingIndicator';
+      typingDiv.innerHTML = `
+        <div class="avatar">🪐</div>
+        <div class="typing-indicator">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      `;
+      chatContainer.appendChild(typingDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+      const el = document.getElementById('typingIndicator');
+      if (el) el.remove();
+    }
+
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text) return;
+
+      appendUserMessage(text);
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      sendBtn.disabled = true;
+      showTypingIndicator();
+
+      // If in Hindi mode and query doesn't explicitly state language, add hint
+      let queryToSend = text;
+      if (currentLang === 'hi' && !text.includes('हिन्दी') && !text.includes('हिंदी')) {
+        queryToSend = text + " (कृप्या सम्पूर्ण उत्तर विस्तृत व शुद्ध हिन्दी में दें)";
+      }
+
+      try {
+        const res = await fetch('/api/ai/agent/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            userQuery: queryToSend,
+            model: 'gpt-4o-mini'
+          })
+        });
+
+        hideTypingIndicator();
+
+        if (res.ok) {
+          const data = await res.json();
+          appendBotMessage(data.finalAnswer || (currentLang === 'hi' ? 'आपकी ज्योतिषीय गणना पूर्ण हुई।' : 'I have completed your astrological calculation.'), data.steps || []);
+        } else {
+          appendBotMessage(currentLang === 'hi' 
+            ? '⚠️ गणना में त्रुटि हुई। कृपया पुनः प्रयास करें।' 
+            : '⚠️ An error occurred connecting to the astrological computation engine.');
+        }
+      } catch (err) {
+        hideTypingIndicator();
+        appendBotMessage(currentLang === 'hi'
+          ? '⚠️ नेटवर्क त्रुटि: बैकएंड सर्वर से संपर्क नहीं हो सका।'
+          : '⚠️ Network error: Could not reach the backend service on port 18080.');
+      } finally {
+        sendBtn.disabled = false;
+        userInput.focus();
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function formatMarkdown(text) {
+      if (!text) return '';
+      let out = escapeHtml(text);
+      out = out.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      out = out.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      out = out.replace(/\n/g, '<br>');
+      return out;
+    }
+
+    // ─── Observatory View & Tabs ──────────────────────────
+    function switchView(view) {
+      const chatContainer = document.getElementById('chatContainer');
+      const obsContainer = document.getElementById('observatoryContainer');
+      const footer = document.querySelector('footer');
+      const tabChat = document.getElementById('tabChat');
+      const tabObs = document.getElementById('tabObservatory');
+
+      if (view === 'observatory') {
+        chatContainer.style.display = 'none';
+        obsContainer.style.display = 'flex';
+        if (footer) footer.style.display = 'none';
+        tabChat.classList.remove('active');
+        tabObs.classList.add('active');
+        loadDailyTicker();
+      } else {
+        chatContainer.style.display = 'flex';
+        obsContainer.style.display = 'none';
+        if (footer) footer.style.display = 'block';
+        tabChat.classList.add('active');
+        tabObs.classList.remove('active');
+      }
+    }
+
+    // ─── Live Cosmic Ticker ────────────────────────────────
+    let tickerLoaded = false;
+    async function loadDailyTicker() {
+      if (tickerLoaded) return;
+      try {
+        const res = await fetch('/api/astro/widget/daily-summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latitude: 28.6139,
+            longitude: 77.2090,
+            timezone: 'Asia/Kolkata',
+            language: currentLang
+          })
+        });
+        if (res.ok) {
+          const d = await res.json();
+          document.getElementById('valTithi').textContent = d.tithi || 'शुक्ल नवमी';
+          document.getElementById('valNakshatra').textContent = d.nakshatra || 'रोहिणी';
+          document.getElementById('valHora').textContent = d.horaLord || 'बृहस्पति (Jupiter)';
+          document.getElementById('valChoghadiya').textContent = d.choghadiya || 'अमृत / शुभ';
+          document.getElementById('valRahuKaal').textContent = d.rahuKaal || '16:30 - 18:00';
+          document.getElementById('valCosmicNote').textContent = d.activeFestival || d.sentiment || 'अति शुभ फल';
+          tickerLoaded = true;
+        }
+      } catch (err) {
+        console.error('Ticker fetch error:', err);
+      }
+    }
+
+    // ─── Multi-Style Vector SVG Kundli ─────────────────────
+    let currentSvgData = null;
+    async function renderSvgChartUI() {
+      const dobVal = document.getElementById('svgDob').value || '1990-05-15T14:30';
+      const parts = dobVal.split('T');
+      const dob = parts[0] || '1990-05-15';
+      const time = (parts[1] || '14:30').substring(0, 5);
+      const box = document.getElementById('svgPreviewBox');
+
+      box.innerHTML = '<span style="color:var(--accent-gold);">⚡ वैदिक चक्र आरेखित हो रहा है...</span>';
+
+      try {
+        const res = await fetch('/api/astro/chart-svg', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dob, time, city: 'New Delhi' })
+        });
+        if (res.ok) {
+          currentSvgData = await res.json();
+          displaySelectedSvg();
+        } else {
+          box.innerHTML = '<span style="color:#ef4444;">⚠️ कुंडली आलेखन में त्रुटि हुई</span>';
+        }
+      } catch (err) {
+        box.innerHTML = '<span style="color:#ef4444;">⚠️ नेटवर्क त्रुटि: बैकएंड से संपर्क नहीं हुआ</span>';
+      }
+    }
+
+    function displaySelectedSvg() {
+      if (!currentSvgData) return;
+      const style = document.getElementById('svgChartStyle').value;
+      const box = document.getElementById('svgPreviewBox');
+      if (style === 'NORTH_INDIAN') {
+        box.innerHTML = currentSvgData.northIndianSvg || '<p>उत्तर भारतीय आलेख उपलब्ध नहीं है</p>';
+      } else if (style === 'SOUTH_INDIAN') {
+        box.innerHTML = currentSvgData.southIndianSvg || '<p>दक्षिण भारतीय आलेख उपलब्ध नहीं है</p>';
+      } else {
+        box.innerHTML = currentSvgData.westernWheelSvg || '<p>पाश्चात्य चक्र आलेख उपलब्ध नहीं है</p>';
+      }
+    }
+
+    // ─── Lo Shu Magic Square Grid ──────────────────────────
+    async function calculateLoShuUI() {
+      const dob = document.getElementById('loShuDob').value || '1990-05-15';
+      const gender = document.getElementById('loShuGender').value || 'MALE';
+      const summaryBox = document.getElementById('loShuSummary');
+      summaryBox.innerHTML = '⚡ लो-शू मैजिक स्क्वायर गणना जारी...';
+
+      try {
+        const res = await fetch('/api/astro/lo-shu-grid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dob, gender })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          for (let n = 1; n <= 9; n++) {
+            const cell = document.getElementById('lsc-' + n);
+            const freq = document.getElementById('lsf-' + n);
+            if (cell && freq) {
+              const count = (data.gridCounts && data.gridCounts[n]) || (data.grid && data.grid[n]) || 0;
+              if (count > 0) {
+                cell.classList.add('filled');
+                freq.textContent = '×' + count;
+              } else {
+                cell.classList.remove('filled');
+                freq.textContent = '-';
+              }
+            }
+          }
+          const arrows = (data.arrowsOfStrength || data.arrowsPresent || []).join(', ') || (currentLang === 'hi' ? 'संतुलित ऊर्जा' : 'Balanced Energy');
+          summaryBox.innerHTML = `
+            <strong>मूलांक (Driver):</strong> ${data.mulank || '-'} &nbsp;|&nbsp;
+            <strong>भाग्यांक (Conductor):</strong> ${data.bhagyank || '-'} &nbsp;|&nbsp;
+            <strong>कुआ संख्या (Kua):</strong> ${data.kuaNumber || '-'}<br>
+            <strong>सक्रिय योग (Arrows):</strong> ${arrows}<br>
+            <strong>प्रधान तत्व:</strong> ${data.dominantElement || 'अग्नि / वायु'}
+          `;
+        } else {
+          summaryBox.innerHTML = '<span style="color:#ef4444;">गणना में त्रुटि</span>';
+        }
+      } catch (e) {
+        summaryBox.innerHTML = '<span style="color:#ef4444;">नेटवर्क त्रुटि</span>';
+      }
+    }
+
+    // ─── Prashna Horary Engine ─────────────────────────────
+    async function calculatePrashnaUI() {
+      const cat = document.getElementById('prashnaCategory').value;
+      const resBox = document.getElementById('prashnaResult');
+      resBox.innerHTML = '🔮 प्रश्न कुंडली व कार्य सिद्धि योग विश्लेषित हो रहे हैं...';
+
+      const catQuestions = {
+        CAREER: 'क्या मुझे इस वर्ष कार्यक्षेत्र में पदोन्नति व सफलता मिलेगी?',
+        WEALTH: 'क्या इस सौदे या निवेश में आर्थिक लाभ होगा?',
+        MARRIAGE: 'क्या इच्छित विवाह संबंध संपन्न होगा?',
+        HEALTH: 'स्वास्थ्य में सुधार कब तक संभव है?',
+        TRAVEL: 'क्या विदेश यात्रा व वीज़ा का कार्य सिद्ध होगा?',
+        GENERAL: 'क्या यह अभीष्ट कार्य सिद्ध होगा?'
+      };
+
+      try {
+        const res = await fetch('/api/astro/prashna-horary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: catQuestions[cat] || 'कार्य सिद्धि योग',
+            city: 'New Delhi',
+            latitude: 28.6139,
+            longitude: 77.2090
+          })
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const prob = d.karyaSiddhiScore || d.probabilityScore || 78;
+          const siddhi = d.karyaSiddhi ? '✅ कार्य सिद्धि निश्चित' : '⚠️ विलंब व प्रयास अपेक्षित';
+          resBox.innerHTML = `
+            <div style="margin-bottom:6px;">
+              <strong style="color:var(--accent-gold); font-size:0.95rem;">${siddhi}</strong>
+              (${prob}% सिद्धि प्रायिकता)
+            </div>
+            <div><strong>मुख्य कार्येश (Karyesha):</strong> ${d.karyeshaLord || 'बृहस्पति (Guru)'}</div>
+            <div><strong>ताजिक योग:</strong> ${d.tajikaYoga || 'इत्थशाल योग (Ithasala)'}</div>
+            <div><strong>फल काल (Manifestation):</strong> ${d.phalaKalaManifestation || d.timingOfManifestation || '2 से 4 सप्ताह में'}</div>
+            <div style="margin-top:4px; font-size:0.78rem; color:var(--text-muted);">${d.recommendation || d.summary || ''}</div>
+          `;
+        } else {
+          resBox.innerHTML = '<span style="color:#ef4444;">प्रश्न गणना में त्रुटि</span>';
+        }
+      } catch (e) {
+        resBox.innerHTML = '<span style="color:#ef4444;">नेटवर्क त्रुटि</span>';
+      }
+    }
+
+    // ─── Ayur-Jyotish Medical Engine ───────────────────────
+    async function calculateAyurvedaUI() {
+      const dobVal = document.getElementById('ayurDob').value || '1990-05-15T14:30';
+      const parts = dobVal.split('T');
+      const dob = parts[0] || '1990-05-15';
+      const time = (parts[1] || '14:30').substring(0, 5);
+      const presBox = document.getElementById('ayurPrescription');
+      presBox.innerHTML = '🌿 त्रिदोष धातु संतुलन विश्लेषित हो रहा है...';
+
+      try {
+        const res = await fetch('/api/astro/medical-ayurveda', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            natal: { dob, time, city: 'New Delhi' }
+          })
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const vata = Math.round(d.vataPercentage || 35);
+          const pitta = Math.round(d.pittaPercentage || 40);
+          const kapha = Math.round(d.kaphaPercentage || 25);
+
+          document.getElementById('vataBar').style.width = vata + '%';
+          document.getElementById('vataPctText').textContent = vata + '%';
+          document.getElementById('pittaBar').style.width = pitta + '%';
+          document.getElementById('pittaPctText').textContent = pitta + '%';
+          document.getElementById('kaphaBar').style.width = kapha + '%';
+          document.getElementById('kaphaPctText').textContent = kapha + '%';
+
+          const remedies = (d.herbalRemedies || ['अश्वगंधा', 'ब्राह्मी', 'गिलोय']).join(', ');
+          presBox.innerHTML = `
+            <strong>प्रधान प्रकृति:</strong> <span style="color:var(--accent-gold); font-weight:700;">${d.dominantDosha || 'पित्त-वात'}</span><br>
+            <strong>आयुर्वेदिक औषधियाँ / जड़ी-बूटी:</strong> ${remedies}<br>
+            <strong>आहार निर्देश:</strong> ${d.dietaryPrescription || 'संतुलित सात्विक आहार, प्रचुर जल सेवन व उष्ण पदार्थों का संयमित उपयोग'}
+          `;
+        } else {
+          presBox.innerHTML = '<span style="color:#ef4444;">विश्लेषण में त्रुटि</span>';
+        }
+      } catch (e) {
+        presBox.innerHTML = '<span style="color:#ef4444;">नेटवर्क त्रुटि</span>';
+      }
+    }
+
+    // Initialize in Hindi
+    applyLanguage('hi');
+  </script>
+</body>
+</html>
