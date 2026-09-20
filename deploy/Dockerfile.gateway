@@ -1,0 +1,22 @@
+FROM python:3.10-slim
+
+LABEL maintainer="astro-backend"
+LABEL description="Optimized Pure Java 21 API Gateway & Platform Orchestrator"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-21-jre-headless \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY target/astro-backend-*.jar app.jar
+
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+ENV SERVER_PORT=18080
+
+EXPOSE 18080
+
+HEALTHCHECK --interval=20s --timeout=3s --retries=3 \
+  CMD curl -f http://localhost:18080/actuator/health || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

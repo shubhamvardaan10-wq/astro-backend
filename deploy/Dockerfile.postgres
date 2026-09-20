@@ -1,0 +1,29 @@
+FROM python:3.10-slim
+
+LABEL maintainer="astro-backend"
+LABEL description="Optimized Self-Contained PostgreSQL 16+ Database"
+
+ENV POSTGRES_USER=astro \
+    POSTGRES_PASSWORD=astrosecret \
+    POSTGRES_DB=astrodb \
+    PGDATA=/var/lib/postgresql/data
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql \
+    postgresql-contrib \
+    gosu \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p "$PGDATA" /var/run/postgresql && chown -R postgres:postgres "$PGDATA" /var/run/postgresql
+
+COPY deploy/entrypoint-postgres.sh /usr/local/bin/entrypoint-postgres.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint-postgres.sh && chmod +x /usr/local/bin/entrypoint-postgres.sh
+
+VOLUME /var/lib/postgresql/data
+EXPOSE 5432
+
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+  CMD su - postgres -c "pg_isready -U astro -d astrodb" || exit 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint-postgres.sh"]

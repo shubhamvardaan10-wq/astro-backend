@@ -24,6 +24,14 @@ spring:
     default-property-inclusion: non_null
     serialization:
       indent-output: false
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  elasticsearch:
+    uris: ${SPRING_ELASTICSEARCH_URIS:http://localhost:9200}
 
 management:
   endpoints:
@@ -72,10 +80,13 @@ astro:
     enabled: ${ASTRO_ELASTICSEARCH_ENABLED:false}
     index-name: ${ASTRO_ELASTICSEARCH_INDEX:astro_rules}
   worker:
+    remote-url: ${ASTRO_CALC_WORKER_URL:}
     pool-size: ${ASTRO_WORKER_POOL_SIZE:4}
     timeout-seconds: ${ASTRO_WORKER_TIMEOUT_SECONDS:30}
     python: ${ASTRO_WORKER_PYTHON:}
     script: ${ASTRO_WORKER_SCRIPT:worker/daemon.py}
+  media:
+    base-url: ${ASTRO_MEDIA_BASE_URL:http://localhost:8084}
   cache:
     l1-enabled: ${ASTRO_L1_CACHE_ENABLED:true}
     l1-max-size: ${ASTRO_L1_CACHE_MAX_SIZE:10000}

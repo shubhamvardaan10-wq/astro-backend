@@ -39,18 +39,25 @@ public class PythonWorkerPool {
     private final Path daemonScript;
     private final int poolSize;
     private final int timeoutSeconds;
+    private final String remoteWorkerUrl;
     private final BlockingQueue<WorkerProcess> availableWorkers;
     private final List<WorkerProcess> allWorkers = new CopyOnWriteArrayList<>();
     private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
+    private final java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+        .version(java.net.http.HttpClient.Version.HTTP_1_1)
+        .connectTimeout(java.time.Duration.ofSeconds(3))
+        .build();
 
     @Autowired
     public PythonWorkerPool(
             ObjectMapper mapper,
+            @Value("${astro.worker.remote-url:}") String remoteWorkerUrl,
             @Value("${astro.worker.python:}") String customPython,
             @Value("${astro.worker.script:worker/daemon.py}") String scriptPath,
             @Value("${astro.worker.pool-size:4}") int poolSize,
             @Value("${astro.worker.timeout-seconds:30}") int timeoutSeconds) {
         this.mapper = mapper != null ? mapper : new ObjectMapper();
+        this.remoteWorkerUrl = remoteWorkerUrl != null ? remoteWorkerUrl.trim() : "";
         this.pythonExecutable = PythonPathResolver.resolve(customPython);
         this.daemonScript = Paths.get(scriptPath).toAbsolutePath().normalize();
         this.poolSize = Math.max(1, poolSize);
@@ -60,6 +67,11 @@ public class PythonWorkerPool {
 
     @PostConstruct
     public void init() {
+        if (!remoteWorkerUrl.isBlank()) {
+            log.info("PythonWorkerPool configured with remote worker URL: {}. Skipping local process spawning.", remoteWorkerUrl);
+            return;
+        }
+
         if (!Files.isRegularFile(daemonScript)) {
             log.warn("Python worker daemon script not found at {}. Persistent pooling will be disabled.", daemonScript);
             return;
@@ -84,6 +96,37 @@ public class PythonWorkerPool {
     }
 
     public JsonNode execute(JsonNode request) throws Exception {
+        if (!remoteWorkerUrl.isBlank()) {
+            try {
+                byte[] reqBytes = mapper.writeValueAsBytes(request);
+                java.net.http.HttpRequest httpRequest = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(remoteWorkerUrl.replaceAll("/+$", "") + "/calc/execute"))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(reqBytes))
+                    .timeout(java.time.Duration.ofSeconds(timeoutSeconds))
+                    .build();
+
+                java.net.http.HttpResponse<String> response = httpClient.send(
+                    httpRequest,
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
+                );
+
+                if (response.statusCode() == 200) {
+                    return mapper.readTree(response.body());
+                } else {
+                    log.warn("Remote worker returned status {}: {}", response.statusCode(), response.body());
+                    if (availableWorkers.isEmpty()) {
+                        throw new IOException("Remote worker returned status " + response.statusCode() + ": " + response.body());
+                    }
+                }
+            } catch (Exception e) {
+                if (availableWorkers.isEmpty()) {
+                    throw e;
+                }
+                log.warn("Failed to contact remote worker at {}: {}. Falling back to local worker.", remoteWorkerUrl, e.getMessage());
+            }
+        }
+
         byte[] bytes = mapper.writeValueAsBytes(request);
         String jsonLine = new String(bytes, StandardCharsets.UTF_8).replace('\n', ' ').replace('\r', ' ');
         String responseLine = sendReceive(jsonLine);
@@ -175,6 +218,19 @@ public class PythonWorkerPool {
     }
 
     public boolean isHealthy() {
+        if (!remoteWorkerUrl.isBlank()) {
+            try {
+                java.net.http.HttpRequest testReq = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(remoteWorkerUrl.replaceAll("/+$", "") + "/health"))
+                    .GET()
+                    .timeout(java.time.Duration.ofSeconds(2))
+                    .build();
+                java.net.http.HttpResponse<String> resp = httpClient.send(testReq, java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                return resp.statusCode() == 200;
+            } catch (Exception e) {
+                return !availableWorkers.isEmpty();
+            }
+        }
         return !availableWorkers.isEmpty();
     }
 
