@@ -11,3 +11,5 @@ pytz==2025.2
 timezonefinder==6.5.2
 python-dateutil==2.9.0.post0
 tzdata
+opencv-python-headless
+
