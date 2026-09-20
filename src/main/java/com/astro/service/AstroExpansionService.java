@@ -62,6 +62,35 @@ public class AstroExpansionService {
                 this.pythonExecutable, (workerPool != null ? "Active" : "Disabled"));
     }
 
+    private final Map<String, String> pythonScriptCache = Collections.synchronizedMap(
+        new LinkedHashMap<>(256, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
+                return size() > 5000;
+            }
+        }
+    );
+
+    private static String hashKey(String code, String input) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            md.update(code.getBytes(StandardCharsets.UTF_8));
+            md.update((byte) 0x1f);
+            if (input != null) {
+                md.update(input.getBytes(StandardCharsets.UTF_8));
+            }
+            byte[] digest = md.digest();
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                sb.append(Character.forDigit((b >> 4) & 0xf, 16));
+                sb.append(Character.forDigit(b & 0xf, 16));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return Integer.toHexString((code + "::" + input).hashCode());
+        }
+    }
+
     // ── 1. Dynamic SVG Chart Visualizer ───────────────────────────────────────
     public Map<String, Object> generateChartsSvg(BirthRequest req) {
         VedicChartResponse chart = vedicService.compute(req);
@@ -1805,6 +1834,12 @@ public class AstroExpansionService {
 
     // ── Helper: Execute Python script via pipe ────────────────────────────────
     private String executePythonScript(String pythonCode, String inputJson) throws Exception {
+        String cacheKey = hashKey(pythonCode, inputJson);
+        String cached = pythonScriptCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
         // Fast path: Persistent warm Python worker pool
         if (workerPool != null && workerPool.isHealthy()) {
             try {
@@ -1814,7 +1849,9 @@ public class AstroExpansionService {
                 evalReq.put("input", inputJson != null ? inputJson : "");
                 JsonNode res = workerPool.execute(evalReq);
                 if (res != null && "ok".equals(res.path("status").asText())) {
-                    return res.path("output").asText().trim();
+                    String out = res.path("output").asText().trim();
+                    pythonScriptCache.put(cacheKey, out);
+                    return out;
                 } else if (res != null && res.has("message")) {
                     log.warn("Worker pool eval returned non-ok status: {}", res.path("message").asText());
                 }
@@ -1840,7 +1877,9 @@ public class AstroExpansionService {
         if (!completed || process.exitValue() != 0) {
             throw new RuntimeException("Engine script failed (exit " + process.exitValue() + "): " + output);
         }
-        return output.trim();
+        String result = output.trim();
+        pythonScriptCache.put(cacheKey, result);
+        return result;
     }
 
     // ── Helper: Format VedicChartResponse into engine-compatible payload ─────

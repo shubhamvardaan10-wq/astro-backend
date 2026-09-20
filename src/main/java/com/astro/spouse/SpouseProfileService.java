@@ -7,6 +7,8 @@ import com.astro.service.VedicService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +25,14 @@ public class SpouseProfileService {
 
     private final VedicService vedicService;
     private final SpouseProfileEngine engine;
+    private final Map<String, SpouseProfileResponse> spouseCache = Collections.synchronizedMap(
+        new LinkedHashMap<>(64, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, SpouseProfileResponse> eldest) {
+                return size() > 1000;
+            }
+        }
+    );
 
     // ── House lord mapping (sign → ruling planet) ──────────────────────────────
     private static final Map<String, String> SIGN_LORD = Map.ofEntries(
@@ -57,6 +67,13 @@ public class SpouseProfileService {
      * Generate the complete spouse profile for the given birth data.
      */
     public SpouseProfileResponse generate(BirthRequest req) {
+        String cacheKey = (req != null)
+            ? (req.getDob() + "|" + req.getTime() + "|" + (req.getCity() != null ? req.getCity().trim().toLowerCase() : ""))
+            : null;
+        if (cacheKey != null) {
+            SpouseProfileResponse cached = spouseCache.get(cacheKey);
+            if (cached != null) return cached;
+        }
 
         // ── Step 1: Compute full Vedic chart ──────────────────────────────────
         VedicChartResponse chart = vedicService.compute(req);
@@ -122,12 +139,16 @@ public class SpouseProfileService {
         String karakamsha     = "Pisces"; // From prior engine computation for this chart
 
         // ── Step 9: Build full profile ─────────────────────────────────────────
-        return engine.build(
+        SpouseProfileResponse response = engine.build(
                 h7Sign, h7Lord, h7LordSign, h7LordNaksh, h7LordPada,
                 planetsIn7th, d9Lagna, d9VenusSign, venusNaksh,
                 darakaraka, darakarakaSign, upl, karakamsha,
                 req.getCity()
         );
+        if (cacheKey != null) {
+            spouseCache.put(cacheKey, response);
+        }
+        return response;
     }
 
     // ══════════════════════════════════════════════════════════════════════════

@@ -21,12 +21,28 @@ public class PredictionEngine {
     };
 
     private final VedicService vedicService;
+    private final Map<String, PredictionResponse> reportCache = Collections.synchronizedMap(
+        new LinkedHashMap<>(64, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, PredictionResponse> eldest) {
+                return size() > 1000;
+            }
+        }
+    );
 
     public PredictionEngine(VedicService vedicService) {
         this.vedicService = vedicService;
     }
 
     public PredictionResponse generate(BirthRequest req) {
+        String cacheKey = (req != null)
+            ? (req.getDob() + "|" + req.getTime() + "|" + (req.getCity() != null ? req.getCity().trim().toLowerCase() : ""))
+            : null;
+        if (cacheKey != null) {
+            PredictionResponse cached = reportCache.get(cacheKey);
+            if (cached != null) return cached;
+        }
+
         VedicChartResponse chart = vedicService.compute(req);
         PredictionResponse report = new PredictionResponse();
 
@@ -325,6 +341,9 @@ public class PredictionEngine {
             buildSpiritualSection(planets, lagna.sign(), moonPos, dasha));
 
         report.recalcWordCount();
+        if (cacheKey != null) {
+            reportCache.put(cacheKey, report);
+        }
         return report;
     }
 

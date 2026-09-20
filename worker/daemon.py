@@ -27,6 +27,7 @@ except Exception as e:
     ENGINE_LOADED = False
 
 MODULE_CACHE = {}
+COMPILED_CODE_CACHE = {}
 
 def get_module(module_name: str):
     if module_name in MODULE_CACHE:
@@ -46,7 +47,7 @@ def handle_request(req: dict) -> dict:
             return {"methods": engine.METHODS, "license": "AGPL-3.0-or-later", "status": "ok"}
         return {"status": "ok", "methods": {}}
 
-    if action == "analyze":
+    if action in ("analyze", "timezones"):
         payload = req.get("payload", req)
         if not ENGINE_LOADED:
             mod = importlib.import_module("engine")
@@ -77,7 +78,10 @@ def handle_request(req: dict) -> dict:
         sys.stdin = io.StringIO(input_str)
         sys.stdout = captured_stdout
         try:
-            exec(code, {"__name__": "__main__", "sys": sys, "json": json})
+            if code not in COMPILED_CODE_CACHE:
+                COMPILED_CODE_CACHE[code] = compile(code, "<daemon_eval>", "exec")
+            code_obj = COMPILED_CODE_CACHE[code]
+            exec(code_obj, {"__name__": "__main__", "sys": sys, "json": json})
             return {"status": "ok", "output": captured_stdout.getvalue().strip()}
         except Exception as e:
             return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}

@@ -81,8 +81,17 @@ public class AdvancedEngineService {
         return result;
     }
 
+    private volatile JsonNode cachedCapabilities;
+
     public JsonNode capabilities() {
-        return invoke(mapper.valueToTree(Map.of("action", "capabilities")));
+        if (cachedCapabilities != null) {
+            return cachedCapabilities;
+        }
+        JsonNode result = invoke(mapper.valueToTree(Map.of("action", "capabilities")));
+        if (result != null && !result.has("error")) {
+            cachedCapabilities = result;
+        }
+        return result;
     }
 
     public JsonNode resolveTimezones(JsonNode locations) {

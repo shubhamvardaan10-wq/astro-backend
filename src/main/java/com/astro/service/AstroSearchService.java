@@ -50,6 +50,14 @@ public class AstroSearchService {
     private final ElasticsearchOperations elasticsearchOperations;
     private final Map<String, AstroRule> inMemoryCatalog = new ConcurrentHashMap<>();
     private final CircuitBreaker circuitBreaker = new CircuitBreaker("elasticsearch", 3, Duration.ofSeconds(30), 2);
+    private final Map<String, List<Map<String, Object>>> searchCache = Collections.synchronizedMap(
+        new LinkedHashMap<>(64, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, List<Map<String, Object>>> eldest) {
+                return size() > 500;
+            }
+        }
+    );
 
     private static final String[] ZODIAC_SIGNS = {
         "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -80,6 +88,54 @@ public class AstroSearchService {
         {"Mars", "Saturn"}, {"Saturn", "Mars"},
         {"Rahu", "Jupiter"}, {"Ketu", "Venus"}
     };
+
+    private static final Map<String, AstroRule> STATIC_CATALOG = buildStaticCatalog();
+
+    private static Map<String, AstroRule> buildStaticCatalog() {
+        Map<String, AstroRule> map = new LinkedHashMap<>();
+        for (String sign : ZODIAC_SIGNS) {
+            String text = LagnaTexts.getLagna(sign);
+            String id = "lagna_" + sign.toLowerCase(Locale.ROOT);
+            map.put(id, new AstroRule(id, sign + " Lagna (Ascendant)", "Vedic", text, "Lagna"));
+        }
+        for (int h = 1; h <= 12; h++) {
+            String text = LagnaTexts.getHouseMeaning(h);
+            String id = "house_" + h;
+            map.put(id, new AstroRule(id, HOUSE_ORDINALS[h] + " House Meaning", "Vedic", text, "House"));
+        }
+        for (String nakshatra : NAKSHATRAS) {
+            String text = NakshatraTexts.get(nakshatra);
+            String id = "nakshatra_" + nakshatra.toLowerCase(Locale.ROOT).replace(" ", "_");
+            map.put(id, new AstroRule(id, nakshatra + " Nakshatra", "Vedic", text, "Nakshatra"));
+        }
+        for (String planet : PLANETS) {
+            for (String sign : ZODIAC_SIGNS) {
+                String text = PlanetSignTexts.get(planet, sign);
+                String id = "planetsign_" + planet.toLowerCase(Locale.ROOT) + "_" + sign.toLowerCase(Locale.ROOT);
+                map.put(id, new AstroRule(id, planet + " in " + sign, "Vedic", text, "PlanetSign"));
+            }
+        }
+        for (String planet : PLANETS) {
+            for (int h = 1; h <= 12; h++) {
+                String text = PlanetHouseTexts.get(planet, h);
+                String id = "planethouse_" + planet.toLowerCase(Locale.ROOT) + "_h" + h;
+                map.put(id, new AstroRule(id, planet + " in " + HOUSE_ORDINALS[h] + " House (H" + h + ")", "Vedic", text, "PlanetHouse"));
+            }
+        }
+        for (String lord : PLANETS) {
+            String text = DashaTexts.getMaha(lord);
+            String id = "dasha_maha_" + lord.toLowerCase(Locale.ROOT);
+            map.put(id, new AstroRule(id, lord + " Mahadasha", "Vedic", text, "Dasha"));
+        }
+        for (String[] pair : ANTAR_PAIRS) {
+            String maha = pair[0];
+            String antar = pair[1];
+            String text = DashaTexts.getAntar(maha, antar);
+            String id = "dasha_antar_" + maha.toLowerCase(Locale.ROOT) + "_" + antar.toLowerCase(Locale.ROOT);
+            map.put(id, new AstroRule(id, maha + " Mahadasha - " + antar + " Antardasha", "Vedic", text, "Dasha"));
+        }
+        return Collections.unmodifiableMap(map);
+    }
 
     public AstroSearchService() {
         this(false, null, null, DEFAULT_INDEX_NAME);
@@ -121,102 +177,8 @@ public class AstroSearchService {
      * Pre-seeds the in-memory catalog from classical prediction texts.
      */
     private void initCatalog() {
-        // 1. LagnaTexts: Ascendants & Houses
-        for (String sign : ZODIAC_SIGNS) {
-            String text = LagnaTexts.getLagna(sign);
-            String id = "lagna_" + sign.toLowerCase();
-            inMemoryCatalog.put(id, new AstroRule(
-                id,
-                sign + " Lagna (Ascendant)",
-                "Vedic",
-                text,
-                "Lagna"
-            ));
-        }
-
-        for (int h = 1; h <= 12; h++) {
-            String text = LagnaTexts.getHouseMeaning(h);
-            String id = "house_" + h;
-            inMemoryCatalog.put(id, new AstroRule(
-                id,
-                HOUSE_ORDINALS[h] + " House Meaning",
-                "Vedic",
-                text,
-                "House"
-            ));
-        }
-
-        // 2. NakshatraTexts: 27 Lunar mansions
-        for (String nakshatra : NAKSHATRAS) {
-            String text = NakshatraTexts.get(nakshatra);
-            String id = "nakshatra_" + nakshatra.toLowerCase().replace(" ", "_");
-            inMemoryCatalog.put(id, new AstroRule(
-                id,
-                nakshatra + " Nakshatra",
-                "Vedic",
-                text,
-                "Nakshatra"
-            ));
-        }
-
-        // 3. PlanetSignTexts: 9 Planets x 12 Signs
-        for (String planet : PLANETS) {
-            for (String sign : ZODIAC_SIGNS) {
-                String text = PlanetSignTexts.get(planet, sign);
-                String id = "planetsign_" + planet.toLowerCase() + "_" + sign.toLowerCase();
-                inMemoryCatalog.put(id, new AstroRule(
-                    id,
-                    planet + " in " + sign,
-                    "Vedic",
-                    text,
-                    "PlanetSign"
-                ));
-            }
-        }
-
-        // 4. PlanetHouseTexts: 9 Planets x 12 Houses
-        for (String planet : PLANETS) {
-            for (int h = 1; h <= 12; h++) {
-                String text = PlanetHouseTexts.get(planet, h);
-                String id = "planethouse_" + planet.toLowerCase() + "_h" + h;
-                inMemoryCatalog.put(id, new AstroRule(
-                    id,
-                    planet + " in " + HOUSE_ORDINALS[h] + " House (H" + h + ")",
-                    "Vedic",
-                    text,
-                    "PlanetHouse"
-                ));
-            }
-        }
-
-        // 5. DashaTexts: Mahadashas & Antardashas
-        for (String lord : PLANETS) {
-            String text = DashaTexts.getMaha(lord);
-            String id = "dasha_maha_" + lord.toLowerCase();
-            inMemoryCatalog.put(id, new AstroRule(
-                id,
-                lord + " Mahadasha",
-                "Vedic",
-                text,
-                "Dasha"
-            ));
-        }
-
-        for (String[] pair : ANTAR_PAIRS) {
-            String maha = pair[0];
-            String antar = pair[1];
-            String text = DashaTexts.getAntar(maha, antar);
-            String id = "dasha_antar_" + maha.toLowerCase() + "_" + antar.toLowerCase();
-            inMemoryCatalog.put(id, new AstroRule(
-                id,
-                maha + " Mahadasha - " + antar + " Antardasha",
-                "Vedic",
-                text,
-                "Dasha"
-            ));
-        }
-
-        log.info("Initialized in-memory astrological rules catalog with {} entries", inMemoryCatalog.size());
+        inMemoryCatalog.putAll(STATIC_CATALOG);
+        log.debug("Initialized in-memory astrological rules catalog with {} entries", inMemoryCatalog.size());
     }
 
     /**
@@ -267,6 +229,7 @@ public class AstroSearchService {
         }
 
         inMemoryCatalog.put(ruleId.trim(), rule);
+        searchCache.clear();
     }
 
     /**
@@ -280,27 +243,38 @@ public class AstroSearchService {
         }
 
         int effectiveLimit = Math.min(limit, 100);
+        String cacheKey = query.trim().toLowerCase(Locale.ROOT) + ":" + effectiveLimit;
+        List<Map<String, Object>> cached = searchCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
 
+        List<Map<String, Object>> results = doSearchRules(query.trim(), effectiveLimit);
+        searchCache.put(cacheKey, results);
+        return results;
+    }
+
+    private List<Map<String, Object>> doSearchRules(String trimmedQuery, int effectiveLimit) {
         if (enabled && esClient != null) {
             return circuitBreaker.execute(() -> {
                 try {
-                    List<Map<String, Object>> esResults = searchElasticsearch(query.trim(), effectiveLimit);
+                    List<Map<String, Object>> esResults = searchElasticsearch(trimmedQuery, effectiveLimit);
                     if (!esResults.isEmpty()) {
                         return esResults;
                     }
                     // If ES returned 0 hits, check in-memory fallback
-                    List<Map<String, Object>> fallbackResults = searchInMemory(query.trim(), effectiveLimit);
+                    List<Map<String, Object>> fallbackResults = searchInMemory(trimmedQuery, effectiveLimit);
                     return !fallbackResults.isEmpty() ? fallbackResults : esResults;
                 } catch (Exception e) {
                     throw new RuntimeException("Elasticsearch query error: " + e.getMessage(), e);
                 }
             }, () -> {
                 log.debug("Elasticsearch circuit breaker OPEN or tripped; serving search from in-memory rules catalog");
-                return searchInMemory(query.trim(), effectiveLimit);
+                return searchInMemory(trimmedQuery, effectiveLimit);
             });
         }
 
-        return searchInMemory(query.trim(), effectiveLimit);
+        return searchInMemory(trimmedQuery, effectiveLimit);
     }
 
     /**
@@ -388,11 +362,11 @@ public class AstroSearchService {
     }
 
     private double computeRelevance(AstroRule rule, String fullQuery, List<String> tokens) {
-        String id = rule.getId().toLowerCase();
-        String title = rule.getTitle().toLowerCase();
-        String content = rule.getContent() != null ? rule.getContent().toLowerCase() : "";
-        String tradition = rule.getTradition() != null ? rule.getTradition().toLowerCase() : "";
-        String category = rule.getCategory() != null ? rule.getCategory().toLowerCase() : "";
+        String id = rule.getLowerId();
+        String title = rule.getLowerTitle();
+        String content = rule.getLowerContent();
+        String tradition = rule.getLowerTradition();
+        String category = rule.getLowerCategory();
 
         double score = 0.0;
 
@@ -509,6 +483,12 @@ public class AstroSearchService {
         @Field(type = FieldType.Keyword)
         private String category;
 
+        private transient String lowerId;
+        private transient String lowerTitle;
+        private transient String lowerContent;
+        private transient String lowerTradition;
+        private transient String lowerCategory;
+
         public AstroRule() {}
 
         @JsonCreator
@@ -530,19 +510,40 @@ public class AstroSearchService {
         }
 
         public String getId() { return id; }
-        public void setId(String id) { this.id = id; }
+        public void setId(String id) { this.id = id; this.lowerId = null; }
 
         public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
+        public void setTitle(String title) { this.title = title; this.lowerTitle = null; }
 
         public String getTradition() { return tradition; }
-        public void setTradition(String tradition) { this.tradition = tradition; }
+        public void setTradition(String tradition) { this.tradition = tradition; this.lowerTradition = null; }
 
         public String getContent() { return content; }
-        public void setContent(String content) { this.content = content; }
+        public void setContent(String content) { this.content = content; this.lowerContent = null; }
 
         public String getCategory() { return category; }
-        public void setCategory(String category) { this.category = category; }
+        public void setCategory(String category) { this.category = category; this.lowerCategory = null; }
+
+        public String getLowerId() {
+            if (lowerId == null && id != null) lowerId = id.toLowerCase(Locale.ROOT);
+            return lowerId != null ? lowerId : "";
+        }
+        public String getLowerTitle() {
+            if (lowerTitle == null && title != null) lowerTitle = title.toLowerCase(Locale.ROOT);
+            return lowerTitle != null ? lowerTitle : "";
+        }
+        public String getLowerContent() {
+            if (lowerContent == null && content != null) lowerContent = content.toLowerCase(Locale.ROOT);
+            return lowerContent != null ? lowerContent : "";
+        }
+        public String getLowerTradition() {
+            if (lowerTradition == null && tradition != null) lowerTradition = tradition.toLowerCase(Locale.ROOT);
+            return lowerTradition != null ? lowerTradition : "";
+        }
+        public String getLowerCategory() {
+            if (lowerCategory == null && category != null) lowerCategory = category.toLowerCase(Locale.ROOT);
+            return lowerCategory != null ? lowerCategory : "";
+        }
 
         public Map<String, Object> toMap(double score) {
             Map<String, Object> map = new LinkedHashMap<>();

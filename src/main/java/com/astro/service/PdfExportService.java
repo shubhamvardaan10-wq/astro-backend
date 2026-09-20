@@ -70,7 +70,7 @@ public class PdfExportService {
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
-        String output = new String(process.getInputStream().readAllBytes());
+        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         boolean finished = process.waitFor(60, TimeUnit.SECONDS);
 
         if (!finished || process.exitValue() != 0) {

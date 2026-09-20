@@ -90,7 +90,10 @@ public class CityService {
         add("Salem",            11.6643,  78.1460);
         add("Tiruchirappalli",  10.7905,  78.7047);
         add("Trichy",           10.7905,  78.7047);
+        this.cachedCityNames = List.copyOf(cities.values().stream().map(CityInfo::getName).toList());
     }
+
+    private final List<String> cachedCityNames;
 
     private void add(String name, double lat, double lon) {
         cities.put(name.toLowerCase(Locale.ROOT), new CityInfo(name, lat, lon));
@@ -104,6 +107,6 @@ public class CityService {
 
     /** All city names (canonical). */
     public List<String> listCities() {
-        return cities.values().stream().map(CityInfo::getName).toList();
+        return cachedCityNames;
     }
 }

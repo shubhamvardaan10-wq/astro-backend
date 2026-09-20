@@ -149,16 +149,16 @@ public final class Ephemeris {
      */
     public static double planetLongitude(String planet, double jd) {
         double T = AstroMath.julianCenturies(jd);
+        double[] earthPos = helioPos(EARTH, T);
+        return planetLongitudeWithEarth(planet, T, earthPos);
+    }
+
+    private static double planetLongitudeWithEarth(String planet, double T, double[] earthPos) {
         OrbEl el = ELEMENTS.get(planet);
         if (el == null) throw new IllegalArgumentException("Unknown planet: " + planet);
-
-        double[] earthPos = helioPos(EARTH, T);
-        double[] planPos  = helioPos(el,    T);
-
-        // Geocentric = planet − earth
+        double[] planPos = helioPos(el, T);
         double dx = planPos[0] - earthPos[0];
         double dy = planPos[1] - earthPos[1];
-        // Note: z (ecliptic latitude) ignored for longitude-only computation
         return AstroMath.norm360(AstroMath.toDeg(Math.atan2(dy, dx)));
     }
 
@@ -200,34 +200,43 @@ public final class Ephemeris {
     public static Map<String, double[]> allPlanets(double jd) {
         Map<String, double[]> result = new LinkedHashMap<>();
 
-        String[] names = {"Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn","Rahu","Ketu"};
-        double[] lons  = {
-            sunLongitude(jd),
-            moonLongitude(jd),
-            planetLongitude("Mercury", jd),
-            planetLongitude("Venus",   jd),
-            planetLongitude("Mars",    jd),
-            planetLongitude("Jupiter", jd),
-            planetLongitude("Saturn",  jd),
-            rahuLongitude(jd),
-            AstroMath.norm360(rahuLongitude(jd) + 180.0)
-        };
+        double T = AstroMath.julianCenturies(jd);
+        double[] earthPos = helioPos(EARTH, T);
 
-        // Retrograde: compare lon at jd+1 vs jd-1
-        double[] lonsPrev = {
-            sunLongitude(jd - 1), moonLongitude(jd - 1),
-            planetLongitude("Mercury", jd - 1), planetLongitude("Venus",   jd - 1),
-            planetLongitude("Mars",    jd - 1), planetLongitude("Jupiter", jd - 1),
-            planetLongitude("Saturn",  jd - 1),
-            rahuLongitude(jd - 1),
-            AstroMath.norm360(rahuLongitude(jd - 1) + 180.0)
-        };
+        double sunLon  = sunLongitude(jd);
+        double moonLon = moonLongitude(jd);
+        double mercLon = planetLongitudeWithEarth("Mercury", T, earthPos);
+        double venLon  = planetLongitudeWithEarth("Venus",   T, earthPos);
+        double marsLon = planetLongitudeWithEarth("Mars",    T, earthPos);
+        double jupLon  = planetLongitudeWithEarth("Jupiter", T, earthPos);
+        double satLon  = planetLongitudeWithEarth("Saturn",  T, earthPos);
+        double rahuLon = rahuLongitude(jd);
+        double ketuLon = AstroMath.norm360(rahuLon + 180.0);
 
-        for (int i = 0; i < names.length; i++) {
-            double delta = AstroMath.norm180(lons[i] - lonsPrev[i]);
-            // delta < 0 → retrograde
-            result.put(names[i], new double[]{lons[i], delta < 0 ? 1 : 0});
-        }
+        // Sun & Moon are always direct
+        result.put("Sun",  new double[]{sunLon, 0});
+        result.put("Moon", new double[]{moonLon, 0});
+
+        // Planets: check retrograde status by computing earthPosPrev once for jd-1
+        double Tprev = AstroMath.julianCenturies(jd - 1.0);
+        double[] earthPosPrev = helioPos(EARTH, Tprev);
+
+        double mercPrev = planetLongitudeWithEarth("Mercury", Tprev, earthPosPrev);
+        double venPrev  = planetLongitudeWithEarth("Venus",   Tprev, earthPosPrev);
+        double marsPrev = planetLongitudeWithEarth("Mars",    Tprev, earthPosPrev);
+        double jupPrev  = planetLongitudeWithEarth("Jupiter", Tprev, earthPosPrev);
+        double satPrev  = planetLongitudeWithEarth("Saturn",  Tprev, earthPosPrev);
+
+        result.put("Mercury", new double[]{mercLon, AstroMath.norm180(mercLon - mercPrev) < 0 ? 1 : 0});
+        result.put("Venus",   new double[]{venLon,  AstroMath.norm180(venLon - venPrev) < 0 ? 1 : 0});
+        result.put("Mars",    new double[]{marsLon, AstroMath.norm180(marsLon - marsPrev) < 0 ? 1 : 0});
+        result.put("Jupiter", new double[]{jupLon,  AstroMath.norm180(jupLon - jupPrev) < 0 ? 1 : 0});
+        result.put("Saturn",  new double[]{satLon,  AstroMath.norm180(satLon - satPrev) < 0 ? 1 : 0});
+
+        // Rahu & Ketu (mean lunar nodes) are always retrograde
+        result.put("Rahu", new double[]{rahuLon, 1});
+        result.put("Ketu", new double[]{ketuLon, 1});
+
         return result;
     }
 }
