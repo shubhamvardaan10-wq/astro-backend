@@ -33,12 +33,28 @@ public class WesternService {
     );
 
     private final CityService cityService;
+    private final Map<String, WesternChartResponse> chartCache = Collections.synchronizedMap(
+        new LinkedHashMap<>(128, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, WesternChartResponse> eldest) {
+                return size() > 2000;
+            }
+        }
+    );
 
     public WesternService(CityService cityService) {
         this.cityService = cityService;
     }
 
     public WesternChartResponse compute(BirthRequest req) {
+        String cacheKey = (req != null)
+            ? (req.getDob() + "|" + req.getTime() + "|" + (req.getCity() != null ? req.getCity().trim().toLowerCase() : ""))
+            : null;
+        if (cacheKey != null) {
+            WesternChartResponse cached = chartCache.get(cacheKey);
+            if (cached != null) return cached;
+        }
+
         CityInfo city = cityService.findCity(req.getCity());
         if (city == null) throw new IllegalArgumentException("City not found: " + req.getCity());
 
@@ -85,6 +101,9 @@ public class WesternService {
         resp.setPlanets(planets);
         resp.setHouses(houses);
         resp.setAspects(aspects);
+        if (cacheKey != null) {
+            chartCache.put(cacheKey, resp);
+        }
         return resp;
     }
 

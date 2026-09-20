@@ -1,10 +1,12 @@
 package com.astro.service;
 
 import com.astro.model.*;
+import com.astro.util.PythonPathResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -36,28 +38,28 @@ public class AstroExpansionService {
     private final WesternService westernService;
     private final CityService cityService;
     private final ObjectMapper objectMapper;
+    private final PythonWorkerPool workerPool;
+    private final AstroCacheService cacheService;
     private final String pythonExecutable;
 
+    @Autowired
     public AstroExpansionService(
             VedicService vedicService,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) WesternService westernService,
+            @Autowired(required = false) WesternService westernService,
             CityService cityService,
             ObjectMapper objectMapper,
+            @Autowired(required = false) PythonWorkerPool workerPool,
+            @Autowired(required = false) AstroCacheService cacheService,
             @Value("${astro.python.executable:}") String customPython) {
         this.vedicService = vedicService;
         this.westernService = westernService != null ? westernService : new WesternService(cityService);
         this.cityService = cityService;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
-
-        Path venvPython = Paths.get("target/engine-venv/bin/python").toAbsolutePath();
-        if (customPython != null && !customPython.isBlank() && Files.exists(Paths.get(customPython))) {
-            this.pythonExecutable = customPython;
-        } else if (Files.exists(venvPython)) {
-            this.pythonExecutable = venvPython.toString();
-        } else {
-            this.pythonExecutable = "/usr/bin/python3";
-        }
-        log.info("Initialized AstroExpansionService with Python: {}", this.pythonExecutable);
+        this.workerPool = workerPool;
+        this.cacheService = cacheService;
+        this.pythonExecutable = PythonPathResolver.resolve(customPython);
+        log.info("Initialized AstroExpansionService with Python: {}, WorkerPool: {}",
+                this.pythonExecutable, (workerPool != null ? "Active" : "Disabled"));
     }
 
     // ── 1. Dynamic SVG Chart Visualizer ───────────────────────────────────────
@@ -1803,6 +1805,25 @@ public class AstroExpansionService {
 
     // ── Helper: Execute Python script via pipe ────────────────────────────────
     private String executePythonScript(String pythonCode, String inputJson) throws Exception {
+        // Fast path: Persistent warm Python worker pool
+        if (workerPool != null && workerPool.isHealthy()) {
+            try {
+                com.fasterxml.jackson.databind.node.ObjectNode evalReq = objectMapper.createObjectNode();
+                evalReq.put("action", "eval");
+                evalReq.put("code", pythonCode);
+                evalReq.put("input", inputJson != null ? inputJson : "");
+                JsonNode res = workerPool.execute(evalReq);
+                if (res != null && "ok".equals(res.path("status").asText())) {
+                    return res.path("output").asText().trim();
+                } else if (res != null && res.has("message")) {
+                    log.warn("Worker pool eval returned non-ok status: {}", res.path("message").asText());
+                }
+            } catch (Exception e) {
+                log.warn("Worker pool execution failed, falling back to process spawn: {}", e.getMessage());
+            }
+        }
+
+        // Fallback path: On-demand process spawn
         ProcessBuilder pb = new ProcessBuilder(pythonExecutable, "-c", pythonCode);
         pb.redirectErrorStream(true);
         Process process = pb.start();

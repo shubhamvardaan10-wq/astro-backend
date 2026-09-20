@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -30,20 +31,27 @@ public class GeocodingService implements AutoCloseable {
     private final String baseUrl;
     private final int timeoutSeconds;
     private final Map<GeocodingRequest, Cached> cache = new LinkedHashMap<>(16, 0.75f, true);
-    private final Semaphore capacity = new Semaphore(2);
+    private final Semaphore capacity;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3))
         .followRedirects(HttpClient.Redirect.NEVER).proxy(new ProxySelector() {
             public List<Proxy> select(URI uri) { return List.of(Proxy.NO_PROXY); }
             public void connectFailed(URI uri, SocketAddress address, IOException error) { }
         }).build();
 
+    @Autowired
     public GeocodingService(ObjectMapper mapper, AdvancedEngineService engine,
             @Value("${astro.geocoding.base-url:}") String baseUrl,
             @Value("${astro.geocoding.timeout-seconds:10}") int timeoutSeconds) {
+        this(mapper, engine, baseUrl, timeoutSeconds, 16);
+    }
+
+    public GeocodingService(ObjectMapper mapper, AdvancedEngineService engine,
+            String baseUrl, int timeoutSeconds, int capacity) {
         this.mapper = mapper;
         this.engine = engine;
         this.baseUrl = baseUrl;
         this.timeoutSeconds = timeoutSeconds;
+        this.capacity = new Semaphore(Math.max(2, capacity));
     }
 
     public JsonNode search(GeocodingRequest request) {
@@ -62,7 +70,7 @@ public class GeocodingService implements AutoCloseable {
             for (JsonNode candidate : candidates) complete &= "resolved".equals(candidate.path("timezoneStatus").asText());
             if (complete) {
                 synchronized (cache) {
-                    if (cache.size() >= 256) cache.remove(cache.keySet().iterator().next());
+                    if (cache.size() >= 4096) cache.remove(cache.keySet().iterator().next());
                     cache.put(query, new Cached(candidates.deepCopy(), System.nanoTime() + Duration.ofHours(24).toNanos()));
                 }
             }

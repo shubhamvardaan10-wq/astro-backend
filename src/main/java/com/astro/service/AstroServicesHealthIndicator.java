@@ -21,15 +21,18 @@ public class AstroServicesHealthIndicator implements HealthIndicator {
     private final AstroSearchService searchService;
     private final AstroCacheService cacheService;
     private final AdvancedEngineService advancedEngineService;
+    private final PythonWorkerPool workerPool;
 
     @Autowired
     public AstroServicesHealthIndicator(
             AstroSearchService searchService,
             AstroCacheService cacheService,
-            AdvancedEngineService advancedEngineService) {
+            AdvancedEngineService advancedEngineService,
+            @Autowired(required = false) PythonWorkerPool workerPool) {
         this.searchService = searchService;
         this.cacheService = cacheService;
         this.advancedEngineService = advancedEngineService;
+        this.workerPool = workerPool;
     }
 
     @Override
@@ -61,19 +64,25 @@ public class AstroServicesHealthIndicator implements HealthIndicator {
             "metrics", cb != null ? cb.getMetrics() : Map.of()
         ));
 
-        // 4. Redis Cache
-        boolean redisEnabled = cacheService.isEnabled();
-        details.put("redisCache", Map.of(
-            "enabled", redisEnabled,
-            "status", redisEnabled ? "ENABLED" : "DISABLED_PASS_THROUGH"
+        // 4. Multi-Tier Cache
+        details.put("cache", Map.of(
+            "redisEnabled", cacheService.isRedisAvailable(),
+            "metrics", cacheService.getCacheStats()
         ));
 
-        // 5. Python Advanced Engine (Swiss Ephemeris & PyJHora)
+        // 5. Python Advanced Engine & Worker Pool
         boolean pythonEngineOk = advancedEngineService != null;
         details.put("pythonMultiTraditionEngine", Map.of(
             "status", pythonEngineOk ? "UP" : "INITIALIZING",
             "methods", "natal,shadbala,ashtakavarga,yogas,bazi,zwds,vimshottari,d7,d9"
         ));
+
+        if (workerPool != null) {
+            details.put("pythonWorkerPool", Map.of(
+                "healthy", workerPool.isHealthy(),
+                "availableWorkers", workerPool.getAvailableWorkerCount()
+            ));
+        }
 
         // 6. PDF Export Service
         details.put("pdfExportService", Map.of(

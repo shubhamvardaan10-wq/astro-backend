@@ -1,10 +1,14 @@
 package com.astro.service;
 
 import com.astro.model.AdvancedRequest;
+import com.astro.util.PythonPathResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,30 +23,62 @@ import java.util.concurrent.*;
 @Service
 public class AdvancedEngineService {
 
+    private static final Logger log = LoggerFactory.getLogger(AdvancedEngineService.class);
     private static final int MAX_INPUT = 32768;
     private static final int MAX_OUTPUT = 4 * 1024 * 1024;
+
     private final ObjectMapper mapper;
     private final CityService cities;
+    private final PythonWorkerPool workerPool;
+    private final AstroCacheService cacheService;
     private final String python;
     private final Path script;
-    private final Semaphore workers = new Semaphore(2);
+    private final Semaphore workers = new Semaphore(8);
     private final ExecutorService readers = Executors.newVirtualThreadPerTaskExecutor();
 
-    public AdvancedEngineService(ObjectMapper mapper, CityService cities,
-            @Value("${astro.worker.python:target/engine-venv/bin/python}") String python,
+    @Autowired
+    public AdvancedEngineService(
+            ObjectMapper mapper,
+            CityService cities,
+            @Autowired(required = false) PythonWorkerPool workerPool,
+            @Autowired(required = false) AstroCacheService cacheService,
+            @Value("${astro.worker.python:}") String python,
             @Value("${astro.worker.script:worker/engine.py}") String script) {
         this.mapper = mapper;
         this.cities = cities;
-        this.python = python;
+        this.workerPool = workerPool;
+        this.cacheService = cacheService;
+        this.python = PythonPathResolver.resolve(python);
         this.script = Path.of(script).toAbsolutePath().normalize();
     }
 
     public JsonNode analyze(AdvancedRequest request) {
+        String cacheKey = null;
+        if (cacheService != null) {
+            try {
+                cacheKey = cacheService.computeCalculationKey(request);
+                var cached = cacheService.getCalculation(cacheKey);
+                if (cached.isPresent()) {
+                    log.debug("Cache hit for calculation key: {}", cacheKey);
+                    return cached.get();
+                }
+            } catch (Exception e) {
+                log.debug("Cache lookup skipped: {}", e.getMessage());
+            }
+        }
+
         ObjectNode payload = mapper.valueToTree(request);
         if (payload.get("birth") instanceof ObjectNode birth) normalizeLocation(birth);
         if (payload.get("partner") instanceof ObjectNode partner) normalizeLocation(partner);
         if (payload.get("location") instanceof ObjectNode location) normalizeLocation(location);
-        return invoke(payload);
+
+        JsonNode result = invoke(payload);
+
+        if (cacheService != null && cacheKey != null && result != null && !result.has("error")) {
+            cacheService.putCalculation(cacheKey, result, null);
+        }
+
+        return result;
     }
 
     public JsonNode capabilities() {
@@ -73,6 +109,19 @@ public class AdvancedEngineService {
     }
 
     private JsonNode invoke(JsonNode request) {
+        // 1. Fast path: Use persistent warm Python worker pool if available
+        if (workerPool != null && workerPool.isHealthy()) {
+            try {
+                JsonNode response = workerPool.analyze(request);
+                if (response != null && !response.has("error")) {
+                    return response;
+                }
+            } catch (Exception e) {
+                log.warn("Worker pool execution failed, falling back to process spawn: {}", e.getMessage());
+            }
+        }
+
+        // 2. Fallback path: On-demand process spawn with error handling
         if (!Files.isRegularFile(script)) throw unavailable("Advanced calculation worker is not installed");
         if (!workers.tryAcquire()) throw unavailable("Calculation capacity is busy; retry later");
         Process process = null;

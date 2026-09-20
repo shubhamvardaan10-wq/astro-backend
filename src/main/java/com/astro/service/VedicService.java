@@ -107,6 +107,14 @@ public class VedicService {
     );
 
     private final CityService cityService;
+    private final Map<String, VedicChartResponse> chartCache = Collections.synchronizedMap(
+        new LinkedHashMap<>(128, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, VedicChartResponse> eldest) {
+                return size() > 2000;
+            }
+        }
+    );
 
     public VedicService(CityService cityService) {
         this.cityService = cityService;
@@ -115,6 +123,14 @@ public class VedicService {
     // ─── Main entry point ─────────────────────────────────────────────────────
 
     public VedicChartResponse compute(BirthRequest req) {
+        String cacheKey = (req != null)
+            ? (req.getDob() + "|" + req.getTime() + "|" + (req.getCity() != null ? req.getCity().trim().toLowerCase() : ""))
+            : null;
+        if (cacheKey != null) {
+            VedicChartResponse cached = chartCache.get(cacheKey);
+            if (cached != null) return cached;
+        }
+
         // ── Parse input ───────────────────────────────────────────────────────
         CityInfo city = resolveCity(req.getCity());
 
@@ -190,6 +206,9 @@ public class VedicService {
         resp.setYogas(yogas);
         resp.setAspects(aspects);
         resp.setAshtakavargaSummary(avSummary);
+        if (cacheKey != null) {
+            chartCache.put(cacheKey, resp);
+        }
         return resp;
     }
 

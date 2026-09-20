@@ -33,19 +33,9 @@ public class PdfExportService {
             @Value("${astro.python.executable:}") String customPython,
             @Value("${astro.python.exporter-script:}") String customScript) {
 
-        Path projectDir = Paths.get("").toAbsolutePath();
-        Path venvPython = projectDir.resolve("target/engine-venv/bin/python");
-        Path systemPython = Paths.get("/usr/bin/python3");
+        this.pythonExecutable = com.astro.util.PythonPathResolver.resolve(customPython);
 
-        if (customPython != null && !customPython.isBlank() && Files.exists(Paths.get(customPython))) {
-            this.pythonExecutable = customPython;
-        } else if (Files.exists(venvPython)) {
-            this.pythonExecutable = venvPython.toString();
-        } else {
-            this.pythonExecutable = systemPython.toString();
-        }
-
-        Path defaultScript = projectDir.resolve("worker/pdf_exporter.py");
+        Path defaultScript = Paths.get("worker/pdf_exporter.py").toAbsolutePath().normalize();
         if (customScript != null && !customScript.isBlank() && Files.exists(Paths.get(customScript))) {
             this.scriptPath = customScript;
         } else {

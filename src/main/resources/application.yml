@@ -2,12 +2,22 @@ server:
   port: ${SERVER_PORT:18080}
   compression:
     enabled: true
-    mime-types: application/json
+    mime-types: application/json,text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/xml
+    min-response-size: 2048
   shutdown: graceful
 
 spring:
   application:
     name: astro-backend
+  threads:
+    virtual:
+      enabled: true
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          max-age: 3600
+          must-revalidate: true
   lifecycle:
     timeout-per-shutdown-phase: 10s
   jackson:
@@ -61,6 +71,15 @@ astro:
   elasticsearch:
     enabled: ${ASTRO_ELASTICSEARCH_ENABLED:false}
     index-name: ${ASTRO_ELASTICSEARCH_INDEX:astro_rules}
+  worker:
+    pool-size: ${ASTRO_WORKER_POOL_SIZE:4}
+    timeout-seconds: ${ASTRO_WORKER_TIMEOUT_SECONDS:30}
+    python: ${ASTRO_WORKER_PYTHON:}
+    script: ${ASTRO_WORKER_SCRIPT:worker/daemon.py}
+  cache:
+    l1-enabled: ${ASTRO_L1_CACHE_ENABLED:true}
+    l1-max-size: ${ASTRO_L1_CACHE_MAX_SIZE:10000}
+    l1-ttl-minutes: ${ASTRO_L1_CACHE_TTL_MINUTES:60}
 
 logging:
   level:
