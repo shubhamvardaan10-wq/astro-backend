@@ -45,6 +45,7 @@ public class AstroController {
     private final AstroSearchService    astroSearchService;
     private final AstroExpansionService astroExpansionService;
     private final com.astro.service.KundliVaultService kundliVaultService;
+    private final com.astro.service.AstroChatService astroChatService;
 
     @Autowired
     public AstroController(VedicService vedicService, WesternService westernService,
@@ -53,7 +54,8 @@ public class AstroController {
                             PdfExportService pdfExportService,
                             AstroSearchService astroSearchService,
                             AstroExpansionService astroExpansionService,
-                            @Autowired(required = false) com.astro.service.KundliVaultService kundliVaultService) {
+                            @Autowired(required = false) com.astro.service.KundliVaultService kundliVaultService,
+                            @Autowired(required = false) com.astro.service.AstroChatService astroChatService) {
         this.vedicService           = vedicService;
         this.westernService         = westernService;
         this.cityService            = cityService;
@@ -63,11 +65,12 @@ public class AstroController {
         this.astroSearchService     = astroSearchService;
         this.astroExpansionService  = astroExpansionService;
         this.kundliVaultService     = kundliVaultService != null ? kundliVaultService : new com.astro.service.KundliVaultService();
+        this.astroChatService       = astroChatService != null ? astroChatService : new com.astro.service.AstroChatService(astroExpansionService, vedicService, null);
     }
 
     public AstroController(VedicService vedicService, WesternService westernService,
                             CityService cityService, PredictionEngine predictionEngine) {
-        this(vedicService, westernService, cityService, predictionEngine, null, null, null, null, null);
+        this(vedicService, westernService, cityService, predictionEngine, null, null, null, null, null, null);
     }
 
     // ─── Vedic chart ──────────────────────────────────────────────────────────
@@ -1022,6 +1025,35 @@ public class AstroController {
         return ResponseEntity.ok(astroExpansionService.ancestralLineage(req));
     }
 
+    // ─── 77. Stateful Conversational Astrologer Chat with Session Memory ───────
+    @PostMapping("/chat")
+    public ResponseEntity<AstroChatResponse> chat(@Valid @RequestBody AstroChatRequest req) {
+        return ResponseEntity.ok(astroChatService.chat(req));
+    }
+
+    @GetMapping("/chat/history/{sessionId}")
+    public ResponseEntity<Map<String, Object>> chatHistory(@PathVariable String sessionId) {
+        return ResponseEntity.ok(Map.of(
+            "sessionId", sessionId,
+            "history", astroChatService.getHistory(sessionId)
+        ));
+    }
+
+    @DeleteMapping("/chat/session/{sessionId}")
+    public ResponseEntity<Map<String, Object>> clearChatSession(@PathVariable String sessionId) {
+        boolean cleared = astroChatService.clearSession(sessionId);
+        return ResponseEntity.ok(Map.of(
+            "sessionId", sessionId,
+            "cleared", cleared
+        ));
+    }
+
+    // ─── 78. High-Granularity Monthly Life Event Timing & Scoring Engine ───────
+    @PostMapping("/timeline-forecast")
+    public ResponseEntity<Map<String, Object>> timelineForecast(@Valid @RequestBody TimelineForecastRequest req) {
+        return ResponseEntity.ok(astroExpansionService.timelineForecast(req));
+    }
+
     // ─── Error handling ───────────────────────────────────────────────────────
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArg(IllegalArgumentException e) {
@@ -1030,8 +1062,11 @@ public class AstroController {
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<Map<String, String>> handleInvalidRequest(Exception e) {
-        return ResponseEntity.badRequest().body(Map.of("error",
-            "Invalid request: provide dob as YYYY-MM-DD, time as HH:mm or HH:mm:ss, and a supported city"));
+        String msg = "Invalid request: provide dob as YYYY-MM-DD, time as HH:mm or HH:mm:ss, and a supported city";
+        if (e instanceof MethodArgumentNotValidException manve && manve.getBindingResult().getFieldError() != null) {
+            msg = manve.getBindingResult().getFieldError().getDefaultMessage();
+        }
+        return ResponseEntity.badRequest().body(Map.of("error", msg));
     }
 
     @ExceptionHandler(Exception.class)

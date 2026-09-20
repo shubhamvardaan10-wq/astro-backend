@@ -60,6 +60,14 @@ info:
       Predictive validity is not scientifically established (Carlson, Nature 1985).
 
 astro:
+  security:
+    enabled: ${ASTRO_SECURITY_ENABLED:false}
+    admin-key: ${ASTRO_ADMIN_API_KEY:ak_live_master_astro_2026}
+  billing:
+    stripe:
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    razorpay:
+      webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
   geocoding:
     base-url: ${ASTRO_GEOCODER_URL:}
     timeout-seconds: ${ASTRO_GEOCODER_TIMEOUT_SECONDS:10}

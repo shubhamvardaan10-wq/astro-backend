@@ -1,4 +1,24 @@
 services:
+  # ── 0. Production Ingress & Automated HTTPS Reverse Proxy ──────────────────
+  astro-ingress:
+    image: astro-ingress-local:latest
+    container_name: astro-ingress
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      astro-api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - astro-network
+
   # ── 1. Pure Java 21 API Gateway & Platform Orchestrator ─────────────────────
   astro-api-gateway:
     image: astro-backend-astro-api-gateway:latest
@@ -16,6 +36,10 @@ services:
       - SPRING_REDIS_PORT=6379
       - ASTRO_KAFKA_ENABLED=false
       - ASTRO_ELASTICSEARCH_ENABLED=false
+      - ASTRO_SECURITY_ENABLED=true
+      - ASTRO_ADMIN_API_KEY=ak_live_master_astro_2026
+      - STRIPE_WEBHOOK_SECRET=whsec_live_demo_stripe_2026
+      - RAZORPAY_WEBHOOK_SECRET=rzp_sec_demo_razorpay_2026
       - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC
     depends_on:
       astro-calc-engine:

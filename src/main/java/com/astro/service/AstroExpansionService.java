@@ -340,6 +340,29 @@ public class AstroExpansionService {
         }
     }
 
+    public Map<String, Object> conversationalChat(String message, Map<String, Object> natalPayload, List<Map<String, String>> history, String language) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("message", message != null ? message : "Hello");
+            payload.put("natal", natalPayload != null ? natalPayload : Map.of());
+            payload.put("history", history != null ? history : List.of());
+            payload.put("language", language != null ? language : "en");
+
+            String inputJson = objectMapper.writeValueAsString(payload);
+
+            String script = "import sys, json; sys.path.insert(0, 'worker'); " +
+                    "from conversational_bot import format_bot_response; " +
+                    "data = json.loads(sys.stdin.read()); " +
+                    "print(json.dumps(format_bot_response(data['message'], data.get('natal'), data.get('history'), data.get('language', 'en'))))";
+
+            String resultJson = executePythonScript(script, inputJson);
+            return objectMapper.readValue(resultJson, Map.class);
+        } catch (Exception e) {
+            log.error("Conversational chat error: {}", e.getMessage());
+            throw new RuntimeException("Failed to process conversational query: " + e.getMessage(), e);
+        }
+    }
+
     // ── 12. Medical Astrology & Ayurvedic Dosha Diagnostics ──────────────────
     public Map<String, Object> medical(BirthRequest req) {
         VedicChartResponse chart = vedicService.compute(req);
@@ -1832,6 +1855,28 @@ public class AstroExpansionService {
         }
     }
 
+    // ── 56. High-Granularity Monthly Life Event Timing & Scoring Engine ───────
+    public Map<String, Object> timelineForecast(TimelineForecastRequest req) {
+        VedicChartResponse chart = vedicService.compute(req);
+        try {
+            int horizon = req.getHorizonMonths() != null ? req.getHorizonMonths() : 12;
+            Map<String, Object> payload = Map.of(
+                "natal", Map.of("vedic", buildVedicPayload(chart)),
+                "horizonMonths", horizon
+            );
+            String inputJson = objectMapper.writeValueAsString(payload);
+            String script = "import sys, json; sys.path.insert(0, 'worker'); " +
+                    "from timeline_forecast_engine import compute_monthly_forecast; " +
+                    "data = json.loads(sys.stdin.read()); " +
+                    "print(json.dumps(compute_monthly_forecast(data['natal'], int(data.get('horizonMonths', 12)))))";
+            String resultJson = executePythonScript(script, inputJson);
+            return objectMapper.readValue(resultJson, Map.class);
+        } catch (Exception e) {
+            log.error("Timeline forecast calculation error: {}", e.getMessage());
+            throw new RuntimeException("Failed to calculate monthly timeline forecast: " + e.getMessage(), e);
+        }
+    }
+
     // ── Helper: Execute Python script via pipe ────────────────────────────────
     private String executePythonScript(String pythonCode, String inputJson) throws Exception {
         String cacheKey = hashKey(pythonCode, inputJson);
@@ -1862,6 +1907,7 @@ public class AstroExpansionService {
 
         // Fallback path: On-demand process spawn
         ProcessBuilder pb = new ProcessBuilder(pythonExecutable, "-c", pythonCode);
+        pb.environment().put("PYTHONIOENCODING", "utf-8");
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
@@ -1883,7 +1929,7 @@ public class AstroExpansionService {
     }
 
     // ── Helper: Format VedicChartResponse into engine-compatible payload ─────
-    private Map<String, Object> buildVedicPayload(VedicChartResponse chart) {
+    public Map<String, Object> buildVedicPayload(VedicChartResponse chart) {
         Map<String, Object> ascMap = Map.of(
             "sign", chart.getLagna() != null ? chart.getLagna().sign() : "Sagittarius",
             "signIndex", chart.getLagna() != null ? chart.getLagna().rashi() : 8,

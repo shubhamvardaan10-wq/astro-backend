@@ -56,6 +56,7 @@ class PalmistryRequest(BaseModel):
     birth_data: Optional[Dict[str, Any]] = None
 
 @app.get("/health")
+@app.get("/media/health")
 def health_check():
     return {
         "status": "UP",
