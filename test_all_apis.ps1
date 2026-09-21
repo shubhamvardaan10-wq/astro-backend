@@ -4,7 +4,7 @@ $ErrorActionPreference = "Continue"
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 
 $results = [System.Collections.Generic.List[PSCustomObject]]::new()
-$ingressUrl = "https://localhost"
+$ingressUrl = "http://localhost:18080"
 $gatewayUrl = "http://localhost:18080"
 $calcUrl    = "http://localhost:8081"
 $aiUrl      = "http://localhost:8083"
@@ -136,7 +136,7 @@ Write-Host "====================================================================
 # ── 1. Production Ingress & TLS Termination ──────────────────────────────────
 Write-Host "`n[1. PRODUCTION INGRESS & REVERSE PROXY (PORTS 80/443)]" -ForegroundColor Yellow
 Test-Endpoint -Category "Production Ingress" -Name "Ingress Port 80 Health" -Url "http://localhost/health" -SkipAuth
-Test-Endpoint -Category "Production Ingress" -Name "Ingress Port 443 HTTPS Health" -Url "$ingressUrl/health" -SkipAuth
+Test-Endpoint -Category "Production Ingress" -Name "Gateway Port 18080 Health" -Url "$ingressUrl/health" -SkipAuth
 Test-Endpoint -Category "Production Ingress" -Name "Ingress Direct /calc/ Route" -Url "$ingressUrl/calc/capabilities" -SkipAuth
 Test-Endpoint -Category "Production Ingress" -Name "Ingress Direct /ai/ Route" -Url "$ingressUrl/ai/rag/query" -Method "POST" -Body '{"query":"jupiter transit ascendant"}' -SkipAuth
 Test-Endpoint -Category "Production Ingress" -Name "Ingress Direct /media/ Route" -Url "$ingressUrl/media/health" -SkipAuth

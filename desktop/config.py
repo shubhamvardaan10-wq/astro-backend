@@ -3,7 +3,7 @@ Global Configuration for Astro Enterprise Desktop Suite.
 """
 import os
 
-DEFAULT_INGRESS_URL = os.getenv("ASTRO_INGRESS_URL", "https://localhost")
+DEFAULT_INGRESS_URL = os.getenv("ASTRO_INGRESS_URL", "http://localhost:18080")
 DEFAULT_GATEWAY_URL = os.getenv("ASTRO_GATEWAY_URL", "http://localhost:18080")
 DEFAULT_CALC_URL = os.getenv("ASTRO_CALC_URL", "http://localhost:8081")
 DEFAULT_AI_URL = os.getenv("ASTRO_AI_URL", "http://localhost:8083")

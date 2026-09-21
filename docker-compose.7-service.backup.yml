@@ -1,0 +1,168 @@
+services:
+  # ── 0. Production Ingress & Automated HTTPS Reverse Proxy ──────────────────
+  astro-ingress:
+    image: astro-ingress-local:latest
+    container_name: astro-ingress
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      astro-api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - astro-network
+
+  # ── 1. Pure Java 21 API Gateway & Platform Orchestrator ─────────────────────
+  astro-api-gateway:
+    image: astro-backend-astro-api-gateway:latest
+    container_name: astro-api-gateway
+    restart: unless-stopped
+    ports:
+      - "18080:18080"
+    environment:
+      - SERVER_PORT=18080
+      - ASTRO_CALC_WORKER_URL=http://astro-calc-engine:8081
+      - ASTRO_AI_BASE_URL=http://astro-ai-rag-service:8083
+      - ASTRO_MEDIA_BASE_URL=http://astro-media-export-service:8084
+      - ASTRO_REDIS_ENABLED=true
+      - SPRING_REDIS_HOST=astro-cache-service
+      - SPRING_REDIS_PORT=6379
+      - ASTRO_KAFKA_ENABLED=false
+      - ASTRO_ELASTICSEARCH_ENABLED=false
+      - ASTRO_SECURITY_ENABLED=true
+      - ASTRO_ADMIN_API_KEY=ak_live_master_astro_2026
+      - STRIPE_WEBHOOK_SECRET=whsec_live_demo_stripe_2026
+      - RAZORPAY_WEBHOOK_SECRET=rzp_sec_demo_razorpay_2026
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC
+    depends_on:
+      astro-calc-engine:
+        condition: service_healthy
+      astro-cache-service:
+        condition: service_healthy
+      astro-ai-rag-service:
+        condition: service_healthy
+      astro-media-export-service:
+        condition: service_healthy
+      astro-vault-db:
+        condition: service_healthy
+    networks:
+      - astro-network
+
+  # ── 2. Specialized Swiss Ephemeris & Astronomical Calculation Engine ────────
+  astro-calc-engine:
+    image: astro-backend-astro-calc-engine:latest
+    container_name: astro-calc-engine
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - astro-network
+
+  # ── 3. AI & Retrieval-Augmented Generation (RAG) Service ───────────────────
+  astro-ai-rag-service:
+    image: astro-backend-astro-ai-rag-service:latest
+    container_name: astro-ai-rag-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=astro-cache-service
+      - LLM_HOST=http://host.docker.internal:8000
+    depends_on:
+      astro-cache-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8083/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - astro-network
+
+  # ── 4. High-Throughput Media, PDF & Computer Vision Service ─────────────────
+  astro-media-export-service:
+    image: astro-backend-astro-media-export-service:latest
+    container_name: astro-media-export-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8084/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - astro-network
+
+  # ── 5. Distributed In-Memory Cache (Redis) ──────────────────────────────────
+  astro-cache-service:
+    image: redis:7.2-alpine
+    container_name: astro-cache-service
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks:
+      - astro-network
+
+  # ── 6. Relational Data Vault (PostgreSQL) ───────────────────────────────────
+  astro-vault-db:
+    image: astro-vault-local:latest
+    container_name: astro-vault-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: astrodb
+      POSTGRES_USER: astro
+      POSTGRES_PASSWORD: astrosecret
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "su - postgres -c \"pg_isready -U astro -d astrodb\" || exit 1"]
+      interval: 8s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - astro-network
+
+volumes:
+  redis-data:
+    driver: local
+  pg-data:
+    driver: local
+
+networks:
+  astro-network:
+    driver: bridge

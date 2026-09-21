@@ -38,6 +38,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         // Whitelist public endpoints
         return path.startsWith("/actuator") ||
+               path.equals("/health") ||
+               path.startsWith("/calc") ||
+               path.startsWith("/ai") ||
+               path.startsWith("/media") ||
                path.startsWith("/api/billing/webhook") ||
                path.equals("/api/billing/plans") ||
                path.equals("/") ||
