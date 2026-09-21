@@ -123,6 +123,65 @@ public class BillingController {
     }
 
     /**
+     * MASTER API #3: Unified Commercial Management & Automated Provisioning
+     * GET  -> Returns public plans and caller's quota usage
+     * POST -> Automated Stripe/Razorpay webhook and instant provisioning
+     */
+    @RequestMapping(value = "/manage", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<Map<String, Object>> manageBilling(
+            HttpServletRequest request,
+            @RequestBody(required = false) String body,
+            @RequestHeader(name = "Stripe-Signature", required = false) String stripeSig,
+            @RequestHeader(name = "X-Razorpay-Signature", required = false) String rzpSig) {
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            ApiKeyDetails details = (ApiKeyDetails) request.getAttribute(ApiKeyAuthFilter.ATTR_API_KEY);
+            Map<String, Object> plansResp = getSubscriptionPlans().getBody();
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("service", "Astro-Backend Unified Billing & Quota Manager");
+            resp.put("plans", plansResp != null ? plansResp.get("plans") : List.of());
+            resp.put("activeGateways", List.of("Stripe", "Razorpay"));
+            if (details != null) {
+                resp.put("usage", Map.of(
+                    "key", ApiKeyService.maskKey(details.key()),
+                    "ownerEmail", details.ownerEmail(),
+                    "tier", details.tier().name(),
+                    "rateLimitPerMinute", details.tier().getRequestsPerMinute(),
+                    "monthlyQuota", details.tier().getMonthlyQuota() > 0 ? details.tier().getMonthlyQuota() : "Unlimited"
+                ));
+            }
+            return ResponseEntity.ok(resp);
+        } else {
+            if (body == null || body.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Empty payload for billing management"));
+            }
+            try {
+                JsonNode node = mapper.readTree(body);
+                if (node.has("type") || stripeSig != null) {
+                    return handleStripeWebhook(body, stripeSig);
+                } else if (node.has("event") || node.has("payload") || rzpSig != null) {
+                    return handleRazorpayWebhook(body, rzpSig);
+                } else if (node.has("action") && "provision".equalsIgnoreCase(node.path("action").asText())) {
+                    String email = node.path("email").asText("user@domain.com");
+                    String plan = node.path("tier").asText("pro");
+                    ApiKeyTier tier = resolveTier(plan);
+                    ApiKeyDetails newKey = apiKeyService.createKey(email, tier, 30);
+                    return ResponseEntity.ok(Map.of(
+                        "status", "success",
+                        "apiKeyProvisioned", true,
+                        "ownerEmail", email,
+                        "tier", tier.name(),
+                        "key", newKey.key(),
+                        "keyMasked", ApiKeyService.maskKey(newKey.key())
+                    ));
+                }
+                return handleStripeWebhook(body, stripeSig);
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
+        }
+    }
+
+    /**
      * Webhook Handler for Stripe Subscription & Checkout Events.
      */
     @PostMapping("/webhook/stripe")

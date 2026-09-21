@@ -44,6 +44,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
                path.startsWith("/media") ||
                path.startsWith("/api/billing/webhook") ||
                path.equals("/api/billing/plans") ||
+               path.startsWith("/api/billing/manage") ||
                path.equals("/") ||
                path.endsWith(".html") ||
                path.endsWith(".js") ||

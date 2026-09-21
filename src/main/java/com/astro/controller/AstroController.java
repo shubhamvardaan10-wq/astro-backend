@@ -22,8 +22,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * REST API for astrological chart computation.
@@ -1052,6 +1051,185 @@ public class AstroController {
     @PostMapping("/timeline-forecast")
     public ResponseEntity<Map<String, Object>> timelineForecast(@Valid @RequestBody TimelineForecastRequest req) {
         return ResponseEntity.ok(astroExpansionService.timelineForecast(req));
+    }
+
+    // =========================================================================
+    // ─── MASTER 14 CONSOLIDATED APIS (ENTERPRISE LEAN SUITE) ──────────────────
+    // =========================================================================
+
+    /**
+     * MASTER API #2: Classical Knowledge & Sanskrit Rules Search
+     * GET /api/astro/knowledge
+     */
+    @GetMapping({"/knowledge", "/search/rules"})
+    public ResponseEntity<Map<String, Object>> searchKnowledge(
+            @RequestParam(name = "q", defaultValue = "Sun") String query,
+            @RequestParam(name = "limit", defaultValue = "10") int limit) {
+        List<Map<String, Object>> results = astroSearchService.searchRules(query, limit);
+        return ResponseEntity.ok(Map.of(
+            "query", query,
+            "count", results.size(),
+            "limit", limit,
+            "results", results
+        ));
+    }
+
+    /**
+     * MASTER API #4: Master Natal Horoscope (Vedic D1, Western, D9, Planets, Houses, Dasha, Yogas)
+     * POST /api/astro/chart
+     */
+    @PostMapping("/chart")
+    public ResponseEntity<Map<String, Object>> masterChart(@Valid @RequestBody BirthRequest req) {
+        VedicChartResponse vedic = vedicService.compute(req);
+        WesternChartResponse western = westernService.compute(req);
+        
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("input", vedic.getInput());
+        resp.put("lagna", vedic.getLagna());
+        resp.put("planets", vedic.getPlanets());
+        resp.put("houses", vedic.getHouses());
+        resp.put("dasha", vedic.getDasha());
+        resp.put("nakshatra", Map.of(
+            "nakshatra", vedic.getLagna().nakshatra(),
+            "pada", vedic.getLagna().pada(),
+            "birthMahadasha", vedic.getDasha().getBirthMahadasha()
+        ));
+        resp.put("yogas", vedic.getYogas());
+        resp.put("western", Map.of(
+            "ascendant", western.getAscendant(),
+            "midheaven", western.getMidheaven(),
+            "houseSystem", western.getHouseSystem(),
+            "planets", western.getPlanets()
+        ));
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * MASTER API #6: Automated Birth Time Rectification (BTR)
+     * POST /api/astro/btr
+     */
+    @PostMapping("/btr")
+    public ResponseEntity<Map<String, Object>> btrMaster(@RequestBody Map<String, Object> req) {
+        BirthTimeRectificationRequest btrReq = new BirthTimeRectificationRequest();
+        if (req.containsKey("dob")) btrReq.setDob((String) req.get("dob"));
+        if (req.containsKey("time")) btrReq.setTime((String) req.get("time"));
+        if (req.containsKey("city")) btrReq.setCity((String) req.get("city"));
+        if (req.containsKey("uncertaintyMinutes")) btrReq.setUncertaintyMinutes(((Number) req.get("uncertaintyMinutes")).intValue());
+        if (req.containsKey("stepMinutes")) btrReq.setStepMinutes(((Number) req.get("stepMinutes")).intValue());
+        if (req.containsKey("gender")) btrReq.setGender((String) req.get("gender"));
+        return ResponseEntity.ok(astroExpansionService.birthTimeRectification(btrReq));
+    }
+
+    /**
+     * MASTER API #8: Dynamic Transits, Gochara, Forecast & Alarms Engine
+     * POST /api/astro/transits
+     */
+    @PostMapping("/transits")
+    public ResponseEntity<Map<String, Object>> transitsMaster(@Valid @RequestBody BirthRequest req) {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        try {
+            SadeSatiRequest ssReq = new SadeSatiRequest();
+            ssReq.setDob(req.getDob()); ssReq.setTime(req.getTime()); ssReq.setCity(req.getCity());
+            resp.put("sadeSati", astroExpansionService.sadeSatiTimeline(ssReq));
+        } catch (Exception e) {
+            resp.put("sadeSati", Map.of("error", e.getMessage()));
+        }
+        try {
+            AshtakavargaKakshaRequest akReq = new AshtakavargaKakshaRequest();
+            akReq.setDob(req.getDob()); akReq.setTime(req.getTime()); akReq.setCity(req.getCity());
+            resp.put("ashtakavargaKaksha", astroExpansionService.ashtakavargaKaksha(akReq));
+        } catch (Exception e) {
+            resp.put("ashtakavargaKaksha", Map.of("error", e.getMessage()));
+        }
+        try {
+            TimelineForecastRequest tfReq = new TimelineForecastRequest();
+            tfReq.setDob(req.getDob()); tfReq.setTime(req.getTime()); tfReq.setCity(req.getCity());
+            tfReq.setHorizonMonths(12);
+            resp.put("timelineForecast", astroExpansionService.timelineForecast(tfReq));
+        } catch (Exception e) {
+            resp.put("timelineForecast", Map.of("error", e.getMessage()));
+        }
+        try {
+            TransitAlertsRequest taReq = new TransitAlertsRequest();
+            taReq.setDob(req.getDob()); taReq.setTime(req.getTime()); taReq.setCity(req.getCity());
+            resp.put("transitAlerts", astroExpansionService.transitAlerts(taReq));
+        } catch (Exception e) {
+            resp.put("transitAlerts", Map.of("error", e.getMessage()));
+        }
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * MASTER API #11: Advanced Astrological Systems (KP, Jaimini, Lal Kitab, Nadi)
+     * POST /api/astro/systems
+     */
+    @PostMapping("/systems")
+    public ResponseEntity<Map<String, Object>> systemsMaster(@Valid @RequestBody BirthRequest req) {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        try { resp.put("kpSignificators", astroExpansionService.kpSignificators(req)); } catch (Exception e) { resp.put("kpSignificators", e.getMessage()); }
+        try { resp.put("jaiminiKarakamsha", astroExpansionService.jaiminiKarakamsha(req)); } catch (Exception e) { resp.put("jaiminiKarakamsha", e.getMessage()); }
+        try { resp.put("jaiminiCharaDasha", astroExpansionService.jaiminiCharaDasha(req)); } catch (Exception e) { resp.put("jaiminiCharaDasha", e.getMessage()); }
+        try { resp.put("lalKitab", astroExpansionService.lalKitab(req)); } catch (Exception e) { resp.put("lalKitab", e.getMessage()); }
+        try { resp.put("bhriguNandiNadi", astroExpansionService.bhriguNandiNadi(req)); } catch (Exception e) { resp.put("bhriguNandiNadi", e.getMessage()); }
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * MASTER API #12: Concentric Defense & Esoteric Energy Chakras
+     * POST /api/astro/chakras
+     */
+    @PostMapping("/chakras")
+    public ResponseEntity<Map<String, Object>> chakrasMaster(@Valid @RequestBody BirthRequest req) {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        try { resp.put("kotaChakra", astroExpansionService.kotaChakra(new KotaChakraRequest(req, null))); } catch (Exception e) { resp.put("kotaChakra", e.getMessage()); }
+        try { resp.put("sarvatobhadraChakra", astroExpansionService.sarvatobhadraChakra(new SarvatobhadraRequest(req, null))); } catch (Exception e) { resp.put("sarvatobhadraChakra", e.getMessage()); }
+        try { resp.put("kalasarpaOptimizer", astroExpansionService.kalasarpaOptimizer(req)); } catch (Exception e) { resp.put("kalasarpaOptimizer", e.getMessage()); }
+        try { resp.put("draconicChart", astroExpansionService.draconicChart(new DraconicChartRequest(req))); } catch (Exception e) { resp.put("draconicChart", e.getMessage()); }
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * MASTER API #13: Holistic Cosmic Life Matrix & Wellness Prescriptions
+     * POST /api/astro/life-matrix
+     */
+    @PostMapping("/life-matrix")
+    public ResponseEntity<Map<String, Object>> lifeMatrixMaster(@Valid @RequestBody BirthRequest req) {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        try { resp.put("vastu", astroExpansionService.vastu(req)); } catch (Exception e) { resp.put("vastu", e.getMessage()); }
+        try { resp.put("careerIkigai", astroExpansionService.careerIkigai(req)); } catch (Exception e) { resp.put("careerIkigai", e.getMessage()); }
+        try { resp.put("destinyCurve", astroExpansionService.destinyCurve(req)); } catch (Exception e) { resp.put("destinyCurve", e.getMessage()); }
+        try {
+            NumerologyRequest numReq = new NumerologyRequest();
+            numReq.setDob(req.getDob()); numReq.setFullName("Native");
+            resp.put("numerology", astroExpansionService.numerology(numReq));
+        } catch (Exception e) { resp.put("numerology", e.getMessage()); }
+        try { resp.put("loShuGrid", astroExpansionService.loShuGrid(new LoShuRequest(req.getDob(), "MALE"))); } catch (Exception e) { resp.put("loShuGrid", e.getMessage()); }
+        try { resp.put("medical", astroExpansionService.medical(req)); } catch (Exception e) { resp.put("medical", e.getMessage()); }
+        try {
+            AuraChakraRequest auraReq = new AuraChakraRequest();
+            auraReq.setBirthDetails(req);
+            resp.put("auraChakra", astroExpansionService.auraChakra(auraReq));
+        } catch (Exception e) { resp.put("auraChakra", e.getMessage()); }
+        try { resp.put("soundTherapy", astroExpansionService.soundTherapy(new SoundTherapyRequest())); } catch (Exception e) { resp.put("soundTherapy", e.getMessage()); }
+        try { resp.put("gemstoneRudraksha", astroExpansionService.gemstoneRudraksha(new GemstoneRudrakshaRequest(req))); } catch (Exception e) { resp.put("gemstoneRudraksha", e.getMessage()); }
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * MASTER API #14: High-Definition Visualization, Reports & Publishing
+     * POST /api/astro/visualize
+     */
+    @PostMapping("/visualize")
+    public ResponseEntity<Map<String, Object>> visualizeMaster(@Valid @RequestBody BirthRequest req) {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        try { resp.put("svgs", astroExpansionService.generateChartsSvg(req)); } catch (Exception e) { resp.put("svgs", e.getMessage()); }
+        try {
+            MultilingualReportRequest mlReq = new MultilingualReportRequest();
+            mlReq.setDob(req.getDob()); mlReq.setTime(req.getTime()); mlReq.setCity(req.getCity());
+            mlReq.setTargetLanguage("hi");
+            resp.put("multilingualReportHindi", astroExpansionService.multilingualReport(mlReq));
+        } catch (Exception e) { resp.put("multilingualReportHindi", e.getMessage()); }
+        return ResponseEntity.ok(resp);
     }
 
     // ─── Error handling ───────────────────────────────────────────────────────
